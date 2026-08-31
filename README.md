@@ -20,3 +20,4 @@ As older versions of Python gradually end of like, many Python dependencies have
 | hypercorn         | [pgjones/hypercorn](https://github.com/pgjones/hypercorn) | [LmeSzinc/hypercorn](https://github.com/LmeSzinc/hypercorn) | 0.18.0         | cp38+           |
 | anyio             | [agronholm/anyio](https://github.com/agronholm/anyio) | [LmeSzinc/anyio](https://github.com/LmeSzinc/anyio) | 4.14.2         | cp38+           |
 | python-multipart  | [Kludex/python-multipart](https://github.com/Kludex/python-multipart) | [LmeSzinc/python-multipart](https://github.com/LmeSzinc/python-multipart) | 0.0.32         | cp38+           |
+| truststore        | [sethmlarson/truststore](https://github.com/sethmlarson/truststore) | [LmeSzinc/truststore](https://github.com/LmeSzinc/truststore) | 0.10.4         | cp38+           |

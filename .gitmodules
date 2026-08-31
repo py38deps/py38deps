@@ -43,3 +43,6 @@
 [submodule "repo/python-multipart"]
 	path = repo/python-multipart
 	url = git@github.com:LmeSzinc/python-multipart.git
+[submodule "repo/truststore"]
+	path = repo/truststore
+	url = git@github.com:LmeSzinc/truststore.git
