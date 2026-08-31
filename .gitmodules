@@ -1,51 +1,51 @@
 [submodule "repo/msgspec"]
 	path = repo/msgspec
-	url = git@github.com:LmeSzinc/msgspec.git
+	url = git@github.com:py38deps/msgspec.git
 [submodule "repo/python-zstandard"]
 	path = repo/python-zstandard
-	url = git@github.com:LmeSzinc/python-zstandard.git
+	url = git@github.com:py38deps/python-zstandard.git
 [submodule "repo/hyperframe"]
 	path = repo/hyperframe
-	url = git@github.com:LmeSzinc/hyperframe.git
+	url = git@github.com:py38deps/hyperframe.git
 [submodule "repo/hpack"]
 	path = repo/hpack
-	url = git@github.com:LmeSzinc/hpack.git
+	url = git@github.com:py38deps/hpack.git
 [submodule "repo/h2"]
 	path = repo/h2
-	url = git@github.com:LmeSzinc/h2.git
+	url = git@github.com:py38deps/h2.git
 [submodule "repo/wsproto"]
 	path = repo/wsproto
-	url = git@github.com:LmeSzinc/wsproto.git
+	url = git@github.com:py38deps/wsproto.git
 [submodule "repo/cffi"]
 	path = repo/cffi
-	url = git@github.com:LmeSzinc/cffi.git
+	url = git@github.com:py38deps/cffi.git
 [submodule "repo/attrs"]
 	path = repo/attrs
-	url = git@github.com:LmeSzinc/attrs.git
+	url = git@github.com:py38deps/attrs.git
 [submodule "repo/idna"]
 	path = repo/idna
-	url = git@github.com:LmeSzinc/idna.git
+	url = git@github.com:py38deps/idna.git
 [submodule "repo/anyio"]
 	path = repo/anyio
-	url = git@github.com:LmeSzinc/anyio.git
+	url = git@github.com:py38deps/anyio.git
 [submodule "repo/trio"]
 	path = repo/trio
-	url = git@github.com:LmeSzinc/trio.git
+	url = git@github.com:py38deps/trio.git
 [submodule "repo/hypercorn"]
 	path = repo/hypercorn
-	url = git@github.com:LmeSzinc/hypercorn.git
+	url = git@github.com:py38deps/hypercorn.git
 [submodule "repo/PyAV"]
 	path = repo/PyAV
-	url = git@github.com:LmeSzinc/PyAV.git
+	url = git@github.com:py38deps/PyAV.git
 [submodule "repo/httpx2"]
 	path = repo/httpx2
-	url = git@github.com:LmeSzinc/httpx2.git
+	url = git@github.com:py38deps/httpx2.git
 [submodule "repo/python-multipart"]
 	path = repo/python-multipart
-	url = git@github.com:LmeSzinc/python-multipart.git
+	url = git@github.com:py38deps/python-multipart.git
 [submodule "repo/truststore"]
 	path = repo/truststore
-	url = git@github.com:LmeSzinc/truststore.git
+	url = git@github.com:py38deps/truststore.git
 [submodule "repo/pyjwt"]
 	path = repo/pyjwt
-	url = git@github.com:LmeSzinc/pyjwt.git
+	url = git@github.com:py38deps/pyjwt.git

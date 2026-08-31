@@ -187,7 +187,7 @@ EOF
 
 在创建新的移植库之前，需要知道：
 
-- 二次开发仓库的地址（`ORIGIN_URL`），例如：`git@github.com:LmeSzinc/python-zstandard.git` ，二次开发地址需要使用 git 协议，如果是 HTTP 地址需要转换为 git 协议地址。
+- 二次开发仓库的地址（`ORIGIN_URL`），例如：`git@github.com:py38deps/python-zstandard.git` ，二次开发地址需要使用 git 协议，如果是 HTTP 地址需要转换为 git 协议地址。
 - 官方仓库地址（`UPSTREAM_URL`），例如：`https://github.com/indygreg/python-zstandard`，使用 HTTP 地址
 - 依赖名称（`DEP_NAME`），例如 `python-zstandard`。注意，这里使用的是库名称（Distribution Name），也就是在 Pypi 中注册的名字，用于 `pip install ...` ；而不是导入名称（Import Name）。对于 `python-zstandard` 而言，库名称叫 `python-zstandard`，而导入名称是 `zstandard`。
 
