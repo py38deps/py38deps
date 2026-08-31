@@ -21,3 +21,4 @@ As older versions of Python gradually end of like, many Python dependencies have
 | anyio             | [agronholm/anyio](https://github.com/agronholm/anyio) | [LmeSzinc/anyio](https://github.com/LmeSzinc/anyio) | 4.14.2         | cp38+           | [LIMITS](doc/LIMITS-anyio.md) |
 | python-multipart  | [Kludex/python-multipart](https://github.com/Kludex/python-multipart) | [LmeSzinc/python-multipart](https://github.com/LmeSzinc/python-multipart) | 0.0.32         | cp38+           |        |
 | truststore        | [sethmlarson/truststore](https://github.com/sethmlarson/truststore) | [LmeSzinc/truststore](https://github.com/LmeSzinc/truststore) | 0.10.4         | cp38+           | [LIMITS](doc/LIMITS-truststore.md) |
+| PyJWT             | [jpadilla/pyjwt](https://github.com/jpadilla/pyjwt) | [LmeSzinc/pyjwt](https://github.com/LmeSzinc/pyjwt) | 2.13.0         | cp38+           |        |

@@ -46,3 +46,6 @@
 [submodule "repo/truststore"]
 	path = repo/truststore
 	url = git@github.com:LmeSzinc/truststore.git
+[submodule "repo/pyjwt"]
+	path = repo/pyjwt
+	url = git@github.com:LmeSzinc/pyjwt.git
