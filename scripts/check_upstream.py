@@ -142,7 +142,11 @@ def main():
             try:
                 fetch_upstream(sub)
             except subprocess.CalledProcessError as exc:
-                print(f"!! {path}: fetch upstream failed: {exc.stderr.strip()} - skipped")
+                print(f"!! {path}: fetch upstream failed - skipped")
+                if exc.stdout:
+                    print(f"    stdout: {exc.stdout.strip()}")
+                if exc.stderr:
+                    print(f"    stderr: {exc.stderr.strip()}")
                 continue
 
         tag = newest_tag(sub, args.include_pre)
