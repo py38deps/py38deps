@@ -36,12 +36,6 @@ envs/cp314t/python.exe
 
 编译工具在 `mingw64/bin` 目录下，禁止自行在系统环境中安装编译工具。
 
-### git commit 要求
-
-在修改完依赖之后，在 submodule 中执行 `git commit`，但是禁止 `git push`。
-
-在修改完依赖之后，不要自动在 py38deps 仓库中提交来更新 submodule 引用，让用户自己确认 ci 运行正常再让用户自己 commit。
-
 ### 优先使用codewhale内置工具
 
 优先使用 codewhale 内置工具而不是调用外部命令行。如果遇到权限问题再去尝试使用命令行访问。如果在任务中多次需要访问一个外部路径，提示用户可以执行 `/trust add {PATH}` 添加信任，这样下一次可以使用内置工具进行访问。
@@ -127,7 +121,54 @@ EOF
 
 如果需要下载临时文件，下载到项目根目录的 tmp 文件夹，不要下载到系统 temp 目录
 
-## 创建移植库流程
+### 禁止事项
+
+1. 禁止使用系统环境中的 git 凭证访问 github 中受限的内容（例如 github actions logs，github actions artifacts 等），必须使用 mcp 工具操作受限内容。访问非受限内容（比如公开仓库的文件）无需携带凭证，不在禁止范围内。
+
+   这将避免用户凭证泄漏到上下文中。如果 MCP 工具未配置/无法使用/无法访问，立刻上报用户。
+
+2. 禁止读取 mcp 配置文件，提取其中的 GITHUB_TOKEN 来访问受限内容，原因同上。
+
+3. `git push` 必须征得用户同意，禁止自动 `git push`
+
+4. 禁止将本地构建的 wheel 放入 `wheel` 文件夹，只能存放来自 CI 的构建。
+
+
+## 1. 反向移植流程流程概述
+
+### 1.2 本地修改与测试
+
+1. 回退 git 历史到最新版本的 tag，因为我们需要构建的是最新版本的反向移植，不应该引入未发布的内容
+
+2. 查找 git 历史，看看是哪些 commit 移除了旧版本的支持，回退这些修改。
+
+3. 找到废除旧版本支持后的变更，查看变更是否引入了旧版本不支持的python语法。
+4. 在 cp38 下进行测试，确认基本行为正确，并且没有不支持的语法
+5. 测试通过了之后再在其余 python 版本下运行完整测试。
+6. 所有本地测试通过后，使用 `git commit` 提交代码，请求用户 review 代码，进入第 1.2 章节 CI 构建。
+
+> 对于纯python实现的库，可以直接使用测试环境的python运行时进行测试，不需要把库安装到环境中。
+>
+> 对于需要编译的库，才安装到环境中。
+
+### 1.2 CI构建
+
+1. 请求用户 review 代码，如果用户表示通过或者要求进行推送，执行 `git push` 推送代码，这将自动触发 CI
+
+2. 进入第 4 章节，轮询 Github Actions 运行状态
+
+3. 如果发现错误，停止轮询并开始进行本地修复，不等待整个 action 运行完成。进入第 5 章节，拉取 log 然后进行修复。本地修复完成后继续轮询当前 action，发现新的错误继续进行本地修复，直到整个 action 运行完成，收集到所有错误和修复所有错误。
+
+   全部修复完成后，回到第 1.2 章节开头，重新请求用户 review 代码，禁止在修复后直接 `git push`，禁止在上一个 action 未完成前，通过 `git push` 触发新的 action
+
+4. 如果 action 运行全部成功，进入第 6 章节，下载 artifacts 放入 wheel 文件夹。
+
+### 1.3 更新主仓库 py38deps
+
+1. 请求用户检查当前状态，通过则进行下一步。子仓库未完成迁移，不能更新主仓库
+2. 进入第 7 章节更新主仓库
+
+## 2. 创建移植库流程
 
 在创建新的移植库之前，需要知道：
 
@@ -135,13 +176,13 @@ EOF
 - 官方仓库地址（`UPSTREAM_URL`），例如：`https://github.com/indygreg/python-zstandard`，使用 HTTP 地址
 - 依赖名称（`DEP_NAME`），例如 `python-zstandard`。注意，这里使用的是库名称（Distribution Name），也就是在 Pypi 中注册的名字，用于 `pip install ...` ；而不是导入名称（Import Name）。对于 `python-zstandard` 而言，库名称叫 `python-zstandard`，而导入名称是 `zstandard`。
 
-### 步骤1：添加submodule
+### 2.1 添加submodule
 
 ```bash
 git submodule add <ORIGIN_URL> repo/<DEP_NAME>
 ```
 
-### 步骤 2：配置子模块的 Remote (Origin 与 Upstream)
+### 2.2 配置子模块的 Remote (Origin 与 Upstream)
 
 进入子模块内部，配置远程仓库关联：
 
@@ -158,7 +199,7 @@ git remote add upstream <UPSTREAM_URL>
 git fetch upstream --tags
 ```
 
-### 步骤 3：切换到二次开发分支 (防止游离态/Detached HEAD)
+### 2.3 切换到二次开发分支 (防止游离态/Detached HEAD)
 
 如果你直接进入子模块目录修改代码并 git commit，代码可能会提交到一个“游离分支”，导致丢代码。**必须**显式切换到二次开发分支，严禁在临时提交上工作。
 
@@ -170,21 +211,183 @@ git fetch upstream --tags
 git checkout <BACKPORT_BRANCH>
 ```
 
+## 3. 可用工具（会话内调用名 `mcp_github--actions_*`，注意双下划线）
 
+| 工具                  | 方法                                                         | 用途                                                         |
+| --------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `actions_list`        | `list_workflows` / `list_workflow_runs` / `list_workflow_jobs` / `list_workflow_run_artifacts` | 列 workflow / run / job / artifact（artifact 返回完整 JSON：**id、size_in_bytes、digest(sha256)**） |
+| `actions_get`         | `get_workflow_run` / `get_workflow_job` / `get_workflow_run_logs_url` / `download_workflow_run_artifact` / `get_workflow_run_usage` | 详情 / 日志签名 URL / artifact 签名 URL                      |
+| `get_job_logs`        | `job_id` 或 `run_id`+`failed_only`；`return_content`、`tail_lines` | **直接返回日志文本**（快速调试用）；`failed_only=true` 只看失败 job |
+| `actions_run_trigger` | `run_workflow` / `rerun_workflow_run` / `rerun_failed_jobs` / `cancel_workflow_run` / `delete_workflow_run_logs` | 触发 / 重跑 / 取消                                           |
 
-## 反向移植流程
+## 4. 轮询 GitHub Actions 流程
 
-1. 回退 git 历史到最新版本的 tag，因为我们需要构建的是最新版本的反向移植，不应该引入未发布的内容
+目标：push 触发 CI 后，以 **3 分钟**为间隔持续观察，**一旦发现错误立即停下轮询去修复**，不等待整个 run 跑完；修复后重新轮询，发现新的错误继续修复，直到整个 actions 运行完成。
 
-2. 查找 git 历史，看看是哪些 commit 移除了旧版本的支持，回退这些修改。
+不要用更短间隔（API 限速 60 次/小时，3 分钟足够及时）；如果错误出现后修复动作本身耗时较长，间隔不影响整体效率。
 
-3. 找到废除旧版本支持后的变更，查看变更是否引入了旧版本不支持的python语法。
-4. 在 cp38 下进行测试，确认基本行为正确，并且没有不支持的语法
-5. 测试通过了之后再在其余 python 版本下运行完整测试。
+### 4.1 找最新触发的 run（含 head_sha 核对）
 
-> 对于纯python实现的库，可以直接使用测试环境的python运行时进行测试，不需要把库安装到环境中。
->
-> 对于需要编译的库，才安装到环境中。
+```jsonc
+// 1. 列最近 runs（按时间倒序，第一条即最新）
+mcp_github--actions_actions_list(owner, repo, method="list_workflow_runs", resource_id=<workflow_id 可选>, workflow_runs_filter={"branch": "main"})
+
+// 2. 核对 head_sha == 本地 commit（官方 filter 不支持 head_sha，必须核对）
+mcp_github--actions_actions_get(owner, repo, method="get_workflow_run", resource_id=<run_id>)
+// 返回的 head_sha 与本地 git rev-parse HEAD 对比；不一致则取下一条 run
+```
+
+### 4.2 每次轮询检查什么
+
+```jsonc
+// 每个 job 的状态（关键：job 可能先于 run 失败）
+mcp_github--actions_actions_list(owner, repo, method="list_workflow_jobs", resource_id=<run_id>)
+```
+
+判断逻辑：
+
+1. 任一 job `conclusion: failure`（run 可能还在 `in_progress`，其他 job 可能还在跑）→ **立即停止轮询，进入修复**，不等待其他 job 跑完
+2. 全部 job `conclusion: success` → 进入下载 artifact
+
+## 5. 拉取 log 流程（下载到 tmp 缓存）
+
+### 5.1 找到目标 run
+
+```jsonc
+mcp_github--actions_actions_list(owner, repo, method="list_workflow_runs", resource_id=<workflow_id 可选>, workflow_runs_filter={...})
+// 返回每个 run 的 id / run_number / name / status / conclusion / head_branch
+```
+
+### 5.2 拿日志签名 URL 并下载
+
+```jsonc
+mcp_github--actions_actions_get(owner, repo, method="get_workflow_run_logs_url", resource_id=<run_id>)
+// 返回 logs_url（results-receiver.actions.githubusercontent.com 带签名，匿名可下，有时效，尽快下载）
+```
+
+> 下载 GitHub 日志 / 产物需通过代理（clash 等），在 curl 中加 `--proxy http://127.0.0.1:7890`：
+
+```powershell
+cd "E:\ProgramData\Pycharm\py38deps"
+New-Item -ItemType Directory -Force -Path "tmp\msgspec" | Out-Null
+curl.exe -sL --proxy http://127.0.0.1:7890 -o "tmp\msgspec\logs_27066034896.zip" "<logs_url>"
+```
+
+### 5.3 解压到同名文件夹（用 Python zipfile，不用 Windows tar.exe）
+
+```powershell
+@'
+import zipfile
+src = r"tmp\msgspec\logs_27066034896.zip"
+dst = r"tmp\msgspec\logs_27066034896"
+z = zipfile.ZipFile(src)
+assert z.testzip() is None, "zip corrupted"   # 完整性校验
+z.extractall(dst)
+print(dst)
+'@ | & "E:\ProgramData\Pycharm\py38deps\envs\cp38\python.exe"
+```
+
+解压后结构：`tmp/{repo}/logs_{id}/` 内每个 job 一个 `<序号>_<job名>.txt`，另有 `<job名>/system.txt` 记录 runner 环境信息。
+
+### 5.4 读取日志（用内置工具，无编码问题）
+
+**不要用 PowerShell 打印日志内容**（控制台 GBK 遇到 UTF-8 BOM 会报 `UnicodeEncodeError`）。用内置工具：
+
+- `list_dir(path="tmp/{repo}/logs_{id}")` 定位文件
+- `read(path="tmp/{repo}/logs_{id}/0_xxx.txt")` 读取完整日志
+- `grep_files(pattern="error|failed", path="tmp/{repo}/logs_{id}")` 快速定位失败原因
+
+## 6. 下载 artifact 流程（下载到 tmp + 校验）
+
+### 6.1 列出 artifact 拿 id / size / digest
+
+```jsonc
+mcp_github--actions_actions_list(owner, repo, method="list_workflow_run_artifacts", resource_id=<run_id>)
+// 返回 artifacts 数组：id、name、size_in_bytes、digest("sha256:...")、expired、expires_at
+```
+
+### 6.2 拿签名 URL
+
+```jsonc
+mcp_github--actions_actions_get(owner, repo, method="download_workflow_run_artifact", resource_id=<artifact_id>)
+// 返回 download_url（Azure Blob 带签名，匿名可下，有时效，尽快下载）
+```
+
+### 6.3 下载到 `tmp/{repo}/artifact_{name}.zip`
+
+```powershell
+cd "E:\ProgramData\Pycharm\py38deps"
+curl.exe -sL --proxy http://127.0.0.1:7890 -o "tmp\msgspec\artifact_artifact-sdist.zip" "<download_url>"
+```
+
+### 6.4 校验（必须）并解压（先校验，通过后再解压）
+
+下载完成后**必须先校验**（参考值来自 5.1 的返回），校验全部通过后才解压：
+
+```powershell
+# 第一步：校验（大小、sha256、zip 完整性）
+@'
+import hashlib, zipfile, os
+path = r"tmp\msgspec\artifact_artifact-sdist.zip"
+expected_size = 323824                 # size_in_bytes
+expected_sha = "261e5e82..."           # digest 去掉 "sha256:" 前缀
+size = os.path.getsize(path)
+sha = hashlib.sha256(open(path, "rb").read()).hexdigest()
+assert size == expected_size, f"size mismatch: {size} != {expected_size}"
+assert sha == expected_sha, f"sha256 mismatch: {sha}"
+z = zipfile.ZipFile(path)
+assert z.testzip() is None, "zip corrupted"
+print("OK:", size, sha)
+'@ | & "E:\ProgramData\Pycharm\py38deps\envs\cp38\python.exe"
+
+# 第二步：校验通过后再解压到同名文件夹，以msgspec为例
+@'
+import zipfile
+z = zipfile.ZipFile(r"tmp\msgspec\artifact_artifact-sdist.zip")
+z.extractall(r"tmp\msgspec\artifact_artifact-sdist")
+print("extracted")
+'@ | & "E:\ProgramData\Pycharm\py38deps\envs\cp38\python.exe"
+```
+
+校验项：**文件大小 == `size_in_bytes`、sha256 == `digest`、zip 可完整解压**。校验不通过就**不要解压**，重新下载或报告问题。
+
+### 6.5 移动 artifact 到 wheel 文件夹
+
+将解压得到的 wheel 文件移动到 `wheel/{DEP_NAME}/{DEP_VERSION}` 文件夹中。
+
+注意 wheel 文件夹只能存放来自 ci 构建的 wheel，禁止将本地构建的 wheel 放入。
+
+## 7. 更新主仓库 py38deps
+
+### 7.1 更新 submodule 引用
+
+执行脚本更新所有 submodules 的引用
+
+```bash
+<python> -m scripts.update_submodules
+```
+
+### 7.2 更新 README.md 的适配表格
+
+### 7.3 在主仓库提交更改
+
+在主仓库 py38deps 提交更改，包括 submodules 的引用更新与 README.md 的更新，提交信息类似
+
+```
+Add: PyAv==18.1.0
+Add: anyio==4.14.2
+```
+
+### 7.4 增加 tag
+
+给 7.3 中的 commit 创建轻量标签（lightweight tag），注意不要创建附注标签（annotated tag），tag 名称类似：
+
+```
+20260816-anyio==4.14.2
+20260815-cffi==2.1.1
+```
+
+# 迁移备忘录
 
 ## 构建前检查：自动生成的版本号
 
@@ -441,6 +644,3 @@ on:
 - `workflow_dispatch` 需要 push 到 GitHub 后按钮才会出现
 - 版本参考：msgspec 用 `upload-artifact@v5`，python-zstandard 用 `@v4.6.2`（pin SHA），hyperframe 用 `@v4`
 - 纯 Python 库的 wheel 为 `py3-none-any`，一个产物即可覆盖 cp38 ~ cp314，无需按平台分别构建
-
-
-
