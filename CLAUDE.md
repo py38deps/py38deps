@@ -67,6 +67,21 @@ envs/cp314t/python.exe
 
 如果用户要求编写计划文档，那么将计划写入到 markdown 文件 `doc/{yyyy}-{mm}-{dd}_{title}.md`，比如 `doc/2026-08-13_somethong-matters.md`
 
+### 编写 LIMITS 文档
+
+`doc/LIMITS-{DEP_NAME}.md` 记录 backport 在**运行时会与官方仓库有差异的功能**（例如 `doc/LIMITS-truststore.md`）。编写原则：
+
+- 只记录**运行时**行为差异：用户代码在低版本 Python 上观察到的、与官方仓库（在其支持的版本上）不一致的行为，以及 fork 特有的行为改动。
+- **不记录**测试内容（测试跳过、fixture、测试语法改写等）和 typehint 内容（PEP 604 union、TypeAlias、`from __future__ import annotations`、typing_extensions 等）。
+- **正确适配不记录**：如果 upstream 源码本身就有版本条件分支（如 `sys.version_info >= (3, 11)` gate、内嵌的 `asyncio.Runner`、`exceptiongroup` 依赖标记、`anext` shim 等），backport 只是把支持范围扩展到 3.8/3.9 且用户可见行为与官方一致，这属于正确适配，不要写进 LIMITS 文档。
+- 记录前必须核实差异真实存在：用 `git show <upstream_tag>:<file>` 对比 upstream 与 backport 源码，确认改动是 fork 特有的且影响运行时行为。常见可记录项：
+  - 低版本 API 缺失导致参数被静默忽略（如 `subprocess.Popen` 的 user/group/umask、`Path.write_text()` 的 newline）
+  - fork 特有的行为改动（如 daemon 线程、错误容忍逻辑）
+  - 依赖版本 pin 与 upstream 不同（如按 Python 版本 pin trio）
+  - `requires-python` 差异与 import gate 的移除
+- 结构建议：核心限制（为什么低版本做不到）→ 各平台/版本影响 → 其他差异 → 汇总表；用英文撰写，风格与 `doc/LIMITS-truststore.md` 一致。
+- 文档命名：`doc/LIMITS-{DEP_NAME}.md`；README 表格的 LIMITS 列用 `[LIMITS](doc/LIMITS-{DEP_NAME}.md)` 链接，没有差异就留空。
+
 ### PowerShell兼容提示
 
 Windows 运行环境下的 PowerShell 版本可能很低，执行这样的命令会报错，因为不支持 `&&`
