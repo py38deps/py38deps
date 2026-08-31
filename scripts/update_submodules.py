@@ -59,8 +59,14 @@ def submodule_head(path):
 
 
 def index_gitlink(path):
-    """Return the gitlink sha recorded for the submodule in the parent index."""
+    """Return the gitlink sha recorded for the submodule in the parent index.
+
+    Returns None when the path has no gitlink entry in the index (e.g. a
+    submodule registered in .gitmodules but not yet `git add`-ed).
+    """
     proc = run_git(["ls-files", "-s", "--", path], ROOT)
+    if not proc.stdout.strip():
+        return None
     # output format: "160000 <sha> 0\t<path>"
     return proc.stdout.split("\t", 1)[0].split()[1]
 
@@ -91,6 +97,9 @@ def main():
         try:
             gitlink = index_gitlink(path)
         except subprocess.CalledProcessError:
+            print(f"!! {path}: not registered in the index - skipped")
+            continue
+        if gitlink is None:
             print(f"!! {path}: not registered in the index - skipped")
             continue
 
