@@ -22,3 +22,5 @@ As older versions of Python gradually end of like, many Python dependencies have
 | python-multipart  | [Kludex/python-multipart](https://github.com/Kludex/python-multipart) | [py38deps/python-multipart](https://github.com/py38deps/python-multipart) | 0.0.32         | cp38+           |        |
 | truststore        | [sethmlarson/truststore](https://github.com/sethmlarson/truststore) | [py38deps/truststore](https://github.com/py38deps/truststore) | 0.10.4         | cp38+           | [LIMITS](doc/LIMITS-truststore.md) |
 | PyJWT             | [jpadilla/pyjwt](https://github.com/jpadilla/pyjwt) | [py38deps/pyjwt](https://github.com/py38deps/pyjwt) | 2.13.0         | cp38+           |        |
+| httpx2            | [pydantic/httpx2](https://github.com/pydantic/httpx2) | [py38deps/httpx2](https://github.com/py38deps/httpx2) | 2.12.0         | cp38+           | [LIMITS](doc/LIMITS-httpx2.md) |
+| httpcore2         | [pydantic/httpx2](https://github.com/pydantic/httpx2) | [py38deps/httpx2](https://github.com/py38deps/httpx2) | 2.12.0         | cp38+           | [LIMITS](doc/LIMITS-httpx2.md) |
