@@ -2,6 +2,17 @@
 
 As older versions of Python gradually end of like, many Python dependencies have raised their minimum python version requirements. `py38deps` backports their latest versions to older Python versions, aiming to support at least Python 3.8.
 
+## Backporting guidelines
+
+Keep the upstream version requirements for **runtime dependencies** as-is. Do **not** add Python version environment markers that split the dependency versions per Python version, for example:
+
+```toml
+trio>=0.33.0,<1.0; python_version >= '3.10'
+trio>=0.27.0,<1.0; python_version < '3.10'
+```
+
+Our backported packages keep working on older Pythons, so the unmarked upstream requirement lets pip reuse an already installed backport (or resolve the newest compatible version) on every supported Python. Test-only dependencies may still use version markers where the tool itself (e.g. pytest) does not support older Pythons.
+
 ## Maintained dependencies
 
 | Dep Name          | Official Repo                                                | Our Repo                                                     | Latest Version | Backport Low To | LIMITS |

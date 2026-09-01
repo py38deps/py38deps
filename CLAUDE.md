@@ -165,6 +165,8 @@ EOF
 > 对于纯python实现的库，可以直接使用测试环境的python运行时进行测试，不需要把库安装到环境中。
 >
 > 对于需要编译的库，才安装到环境中。
+>
+> 本地测试只需要验证所有测试通过，tox/mypy/ruff/lint 验证通过（如果项目有配置），无需模拟 CI 环境运行 CI 脚本，CI 内容让真实 CI 去运行。
 
 ### 1.2 CI构建
 
@@ -659,3 +661,9 @@ on:
 - `workflow_dispatch` 需要 push 到 GitHub 后按钮才会出现
 - 版本参考：msgspec 用 `upload-artifact@v5`，python-zstandard 用 `@v4.6.2`（pin SHA），hyperframe 用 `@v4`
 - 纯 Python 库的 wheel 为 `py3-none-any`，一个产物即可覆盖 cp38 ~ cp314，无需按平台分别构建
+
+## 依赖版本
+
+在反向移植时，运行时依赖不要添加 python 版本环境标记（例如 `trio>=0.33.0,<1.0; python_version >= '3.10'` 搭配 `trio>=0.27.0,<1.0; python_version < '3.10'` 这类写法），保持上游的版本要求，这样在已有 backport 时能够复用装好的库。
+
+测试依赖可以保留 python 版本环境标记
