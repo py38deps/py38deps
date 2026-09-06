@@ -25,3 +25,4 @@ As older versions of Python gradually end of like, many Python dependencies have
 | httpx2            | [pydantic/httpx2](https://github.com/pydantic/httpx2) | [py38deps/httpx2](https://github.com/py38deps/httpx2) | 2.12.0         | cp38+           | [LIMITS](doc/LIMITS-httpx2.md) |
 | httpcore2         | [pydantic/httpx2](https://github.com/pydantic/httpx2) | [py38deps/httpx2](https://github.com/py38deps/httpx2) | 2.12.0         | cp38+           | [LIMITS](doc/LIMITS-httpx2.md) |
 | markdown-it-py    | [executablebooks/markdown-it-py](https://github.com/executablebooks/markdown-it-py) | [py38deps/markdown-it-py](https://github.com/py38deps/markdown-it-py) | 4.2.0          | cp38+           |        |
+| Pygments          | [pygments/pygments](https://github.com/pygments/pygments) | [py38deps/pygments](https://github.com/py38deps/pygments) | 2.21.0         | cp38+           |        |

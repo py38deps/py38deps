@@ -52,3 +52,6 @@
 [submodule "repo/markdown-it-py"]
 	path = repo/markdown-it-py
 	url = git@github.com:py38deps/markdown-it-py.git
+[submodule "repo/pygments"]
+	path = repo/pygments
+	url = git@github.com:py38deps/pygments.git
