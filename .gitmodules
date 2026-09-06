@@ -49,3 +49,6 @@
 [submodule "repo/pyjwt"]
 	path = repo/pyjwt
 	url = git@github.com:py38deps/pyjwt.git
+[submodule "repo/markdown-it-py"]
+	path = repo/markdown-it-py
+	url = git@github.com:py38deps/markdown-it-py.git
