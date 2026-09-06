@@ -32,6 +32,16 @@ envs/cp314/python.exe
 envs/cp314t/python.exe
 ```
 
+### 环境复用铁律（禁止创建全新环境）
+
+`envs/cp38 ~ envs/cp314` 是项目唯一批准的 python 运行时来源，所有版本已就绪。**任何情况下都不得让工具自动下载或新建 python 环境**，违规会在用户目录累积 GB 级缓存、与 envs 重复占用磁盘（完整事故记录见 `doc/2026-09-02_uv-cache-and-environment-reuse.md`）：
+
+- **不要在 `envs/*` 里安装 uv**（`pip install uv`）：tox 4 检测到 PATH 中的 uv 会自动切换到 uv 模式（pyvenv.cfg 写 `uv = x.y.z` 标记），把下载缓存写入 `%LOCALAPPDATA%\uv\cache`（无自动清理），并在找不到指定版本 python 时自动下载完整 python 到用户目录
+- **禁止裸跑 uv 的 python 管理命令**：`uv venv` / `uv run` / `uv python install` 不带 `--python` 参数时，uv 找不到解释器会静默下载 python-build-standalone（150~250MB/个，下载缓存与安装副本双份占用）
+- **创建 venv / 安装依赖一律显式指向 envs 的 python**：`uv venv --python envs\cp38\python.exe`、`uv pip install --python envs\cp38\python.exe ...`、`python -m venv --python envs\cp38\python.exe ...`
+- 项目必须用 uv 时（如 httpx2 的 `uv sync --frozen`）：只能调用 `tmp\uv\uv.exe`（不要往任何 env 里 `pip install uv`），且必须加 `--python` 指向 envs 的解释器
+- **自查信号**：`.tox/*/pyvenv.cfg` 或 venv 的 `pyvenv.cfg` 中 `home` 指向 `C:\Users\...\uv\python`（而非 `envs\cp*`）即违规；用户目录出现 `uv\cache` / `uv\python` 说明有工具自动下载过 python，应提醒用户清理
+
 ### 编译工具
 
 编译工具在 `mingw64/bin` 目录下，禁止自行在系统环境中安装编译工具。
@@ -504,6 +514,13 @@ cd "E:\ProgramData\Pycharm\py38deps\repo\<DEP_NAME>"
 - `--notest` 只创建 env 并安装依赖，用于快速验证解释器查找、依赖解析、sdist 构建；完整验证必须跑 `tox --parallel auto`（等价 CI 的 `tox --parallel auto --notest` + `tox --parallel 0`）
 - tox-gh-actions 只保留 gh-actions 映射中、且存在于 `env_list` 的 env（未定义的残留 env 名如 h2spec 会被静默过滤，不会报错）
 - 映射里 `base_python` 指定了特定版本解释器的 env（如 packaging 的 `python3.14`），本地必须提供对应解释器（硬链接 + PATH），否则报 `could not find python interpreter matching any of the specs`——CI runner 的系统 python 未必有该版本，本地验证能提前发现这类问题
+- **tox 会自动检测并使用 uv**：PATH 中若存在 `uv`（例如 `envs/*/Scripts/uv.exe`），tox 4 会用 uv 创建 venv 并安装依赖。这会向 `%LOCALAPPDATA%\uv\cache` 写缓存，且 tox 找不到 base python 时 uv 会**自动下载完整 python 到用户目录**（实例：pyjwt 的 lint env 需要 python3.10，PATH 只有 cp38 时 uv 下载了整个 python 3.10）。因此本地 tox 模拟前：
+  - **先删除 `envs/*/Scripts/uv.exe`**（cp38/cp39/cp310/cp311/cp312 各有一个，如存在），让 tox 回到标准 virtualenv 模式；不要 `pip install uv` 到任何 env
+  - PATH 建议**一次性加入 tox.ini 中所有 `basepython` 版本对应的 envs**（`lint`/`docs` 等固定版本 env 容易漏），避免 tox/uv 找不到解释器：
+    ```powershell
+    $env:PATH = "E:\ProgramData\Pycharm\py38deps\envs\cp38;E:\ProgramData\Pycharm\py38deps\envs\cp39;E:\ProgramData\Pycharm\py38deps\envs\cp310;E:\ProgramData\Pycharm\py38deps\envs\cp311;E:\ProgramData\Pycharm\py38deps\envs\cp312;E:\ProgramData\Pycharm\py38deps\envs\cp313;E:\ProgramData\Pycharm\py38deps\envs\cp314;$env:PATH"
+    ```
+  - 跑完检查 `.tox/*/pyvenv.cfg`：`home` 必须指向 `envs\cp*`，出现 `uv =` 标记或 `home` 指向 uv 目录即为违规（参照上面「环境复用铁律」的自查信号）
 - 模拟完清理：删除硬链接与 `.tox/`、`dist/` 目录
 
 ## 版本 Cheatsheet（构建与测试工具速查）
