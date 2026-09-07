@@ -414,6 +414,30 @@ Add: anyio==4.14.2
 20260815-cffi==2.1.1
 ```
 
+## python特性迁移备忘录
+
+### @functools.cache
+
+`functools.cache` 是 python 3.9 引入的，本质上就是 `@functools.lru_cache(maxsize=None)` 的一个简写（语法糖），它表示一个无上限（unbounded）的缓存。
+
+- 在 Python 3.9+ 中，@cache 的底层实现比 lru_cache(maxsize=None) 稍微更轻量、更快一点（因为它完全不需要处理任何 LRU 双向链表的逻辑）。
+
+```python
+@functools.cache
+def iter_entry_points(group_name):
+```
+
+替换为：
+
+```python
+functools_cache = getattr(functools, 'cache', functools.lru_cache(maxsize=None))
+
+@functools_cache
+def iter_entry_points(group_name):
+```
+
+这样高版本能享受到高版本的优化，低版本也保持兼容性
+
 # 迁移备忘录
 
 ## 构建前检查：自动生成的版本号
