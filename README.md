@@ -14,7 +14,7 @@ As older versions of Python gradually end of like, many Python dependencies have
 | wsproto           | [python-hyper/wsproto](https://github.com/python-hyper/wsproto) | [py38deps/wsproto](https://github.com/py38deps/wsproto) | 1.3.2          | cp38+           |        |
 | cffi              | [python-cffi/cffi](https://github.com/python-cffi/cffi) | [py38deps/cffi](https://github.com/py38deps/cffi) | 2.1.1          | cp38~cp15       |        |
 | attrs             | [python-attrs/attrs](https://github.com/python-attrs/attrs) | [py38deps/attrs](https://github.com/py38deps/attrs) | 26.1.0         | cp38+           |        |
-| idna              | [kjd/idna](https://github.com/kjd/idna) | [py38deps/idna](https://github.com/py38deps/idna) | 3.18           | cp38+           |        |
+| idna              | [kjd/idna](https://github.com/kjd/idna) | [py38deps/idna](https://github.com/py38deps/idna) | 3.19           | cp38+           |        |
 | trio              | [python-trio/trio](https://github.com/python-trio/trio) | [py38deps/trio](https://github.com/py38deps/trio) | 0.34.0         | cp38+           |        |
 | PyAV              | [PyAV-Org/PyAV](https://github.com/PyAV-Org/PyAV) | [py38deps/PyAV](https://github.com/py38deps/PyAV) | 18.1.0         | cp38~cp14       |        |
 | hypercorn         | [pgjones/hypercorn](https://github.com/pgjones/hypercorn) | [py38deps/hypercorn](https://github.com/py38deps/hypercorn) | 0.18.0         | cp38+           |        |
