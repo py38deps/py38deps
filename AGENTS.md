@@ -161,6 +161,32 @@ EOF
 
 ## 1. 反向移植流程流程概述
 
+### 1.1 已有移植库跟随 upstream 新版本
+
+README 表格中已记录完成的库，upstream 发布新版本后按此流程跟进（idna 3.18→3.19 实例沉淀，2026-09）：
+
+1. 进入子模块 `repo/{DEP_NAME}`，`git fetch upstream --tags --prune`，用 `git tag --sort=-v:refname` 确认新 release tag；`git log --oneline <旧tag>..<新tag>` 查看变更范围
+
+2. **merge 基线必须是 release tag，不要 merge upstream/master**：master 上总有发布后的新 commit，直接 merge 会把未发布内容混进 backport。用 `git merge <vX.Y>`；提交后核对：`git log -1 HEAD^2` 应指向 release tag，且 `git rev-list HEAD` 中不出现 tag 之后的 commit。实例：idna 曾误 merge upstream/master 带入 v3.19 后的 codec 长度限制等未发布改动，被迫 reset 重做
+
+3. 解决冲突前先 `git show <backport commit>` 回顾 backport 改了什么，判断哪些已不需要：
+   - upstream 新版本若已自带 `from __future__ import annotations`（新版常见），backport 的 Optional/Union→`|` 注解改写大多已无必要，源码冲突整体取 theirs（upstream 版）即可；README 版本声明、CI 矩阵/构建产物步骤需要手动融合
+   - 发布/部署类 workflow（如 deploy.yml）在 fork 上继续删除（`git rm`），不用跟随 upstream 恢复
+
+4. 检查 merge 引入的 py38 影响——即使 upstream 宣称支持 3.9+，测试代码也可能用了更高版本的语法/API，逐项检查：
+   - **语法**：在 cp38 下 ast.parse/compileall `idna/`、`tests/`、`tools/`（含无扩展名脚本如 tools/idna-data）。实例：括号化 `with (a, b):` 在 3.8 解析失败（3.9+ 可），改写为逗号续行的多 context manager 形式
+   - **运行时 API**：grep 3.9+ 专属 API（`randbytes`/`removeprefix`/`removesuffix`/`bit_count`/`functools.cache` 等）。实例：`random.Random.randbytes`（3.9+）出现在 fuzz 测试里，用 `getrandbits` 等价实现
+   - **注解**：无 future import 的文件若签名/模块级注解用了 `list[int]` 等 3.9 语法，cp38 import 即报 TypeError，需补 `from __future__ import annotations`（实例：idna/intranges.py）
+   - **依赖**：upstream 的 hash-pinned 测试 requirements 可能含 cp38 解析不到的版本（coverage 7.7.0 起要求 3.9+）。用 `tmp\uv\uv.exe pip compile --generate-hashes --python-version 3.8 .github/requirements/test.in -o .github/requirements/test38.txt` 生成 cp38 专属文件（注释中不会带本机路径），CI 按 python 版本分别安装
+
+5. 验证：
+   - cp38 全量 + cp39~cp314 全量 pytest
+   - Windows GBK locale 下测试需 `$env:PYTHONUTF8="1"`（测试读取 README 等 UTF-8 文件时报 UnicodeDecodeError；CI 的 UTF-8 locale 无此问题，不算代码缺陷，不要为此改代码）
+   - ruff 用 CI 等价的路径范围（upstream 的 `ruff format --check` 可能只查 `idna tests/fuzz_*.py`，不查生成文件如 test_idna_uts46.py，用更宽范围会误报）
+   - 数据表类库用 cp38 跑生成器（如 `tools/idna-data make-libdata`，同样需 PYTHONUTF8）对比 checked-in 表，比较时忽略行尾差异；生成后 `git restore --worktree` 还原行尾
+
+6. 后续与普通流程一致：commit merge → 请求 review → push 触发 CI（第 4 章轮询）→ artifact 校验后放入 wheel（第 6 章）→ 主仓库更新（第 7 章，commit 信息 `Add: idna==3.19`，轻量 tag `20260908-idna==3.19`）。注意 update_submodules 会 stage 所有有本地新 commit 的子模块，提交前把与本次无关的（如 msgspec 遗留引用）用 `git restore --staged` 撤出
+
 ### 1.2 本地修改与测试
 
 1. 回退 git 历史到最新版本的 tag，因为我们需要构建的是最新版本的反向移植，不应该引入未发布的内容
