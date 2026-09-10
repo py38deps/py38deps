@@ -27,4 +27,4 @@ As older versions of Python gradually end of like, many Python dependencies have
 | markdown-it-py    | [executablebooks/markdown-it-py](https://github.com/executablebooks/markdown-it-py) | [py38deps/markdown-it-py](https://github.com/py38deps/markdown-it-py) | 4.2.0          | cp38+           |        |
 | Pygments          | [pygments/pygments](https://github.com/pygments/pygments) | [py38deps/pygments](https://github.com/py38deps/pygments) | 2.21.0         | cp38+           |        |
 | rich              | [Textualize/rich](https://github.com/Textualize/rich) | [py38deps/rich](https://github.com/py38deps/rich) | 15.0.0         | cp38+           |        |
-| MarkupSafe        | [pallets/markupsafe](https://github.com/pallets/markupsafe) | [py38deps/markupsafe](https://github.com/py38deps/markupsafe) | 3.0.3          | cp38+           |        |
+| MarkupSafe        | [pallets/markupsafe](https://github.com/pallets/markupsafe) | [py38deps/markupsafe](https://github.com/py38deps/markupsafe) | 3.0.3          | cp38~cp314      |        |
