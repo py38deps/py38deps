@@ -58,3 +58,6 @@
 [submodule "repo/rich"]
 	path = repo/rich
 	url = git@github.com:py38deps/rich.git
+[submodule "repo/markupsafe"]
+	path = repo/markupsafe
+	url = git@github.com:py38deps/markupsafe.git
