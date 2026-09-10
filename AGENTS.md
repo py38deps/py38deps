@@ -16,6 +16,26 @@
 - 在代码注释中使用英文
 - 在修改已有代码的时候，不要对无关的部分进行修改
 
+##  AI Agent 要求
+
+### 优先使用codewhale内置工具读写文件而不是命令行
+
+优先使用 codewhale 内置工具而不是调用外部命令行。如果遇到权限问题再去尝试使用命令行访问。如果在任务中多次需要访问一个外部路径，提示用户可以执行 `/trust add {PATH}` 添加信任，这样下一次可以使用内置工具进行访问。
+
+- **代码搜索：** 使用内置工具 `grep_files`（正则表达式搜索文件内容）。不要回退到使用命令行 `Select-String` / `rg` / `grep` 进行全仓库搜索。内置工具是使用 rust 编写的，比命令行更快。内置工具会过滤类似 `node_modules`，`build` 等目录，避免搜索无关内容消耗大量时间。
+- **文件搜索：** 使用内置工具 `file_search` （模糊文件名搜索）， `list_dir` （列举路径下的文件和文件夹），不要使用命令行  `Get-Children` / `find` / `dir`。
+- **读取文件：** 使用 `read` 读取单个文件；使用 `grep_files` 搜索多个文件，禁止使用 `Get-Content` 读取项目内的文件
+- **编辑文件：** 使用 `edit` / `fim_edit` / `apply_patch` 等工具编辑文件，不要编写临时脚本去编辑文件。因为内置工具有丰富的模糊匹配与约束，自行编写替换代码很容易遇到 文件编码问题、换行符匹配问题、行号/内容匹配问题、特殊符号转义问题。
+- **批量编辑文件：** 仍然使用内置工具进行编辑。不要怕多次调用工具进行单次编辑很麻烦，手写替换脚本遇到编码问题转义问题反复修改临时脚本更麻烦。
+- **`bash` / powershell 是备用方案，并非默认方案。** 仅当没有内置工具能够完成任务时，或者需要访问超出信任路径时，才使用命令行完成。
+- **禁止使用powershell命令读取写入项目内文件：** 禁止使用 `Get-Content` 读取项目内的文件，因为 powershell 默认读出来是系统编码的文件，而非 UTF-8。禁止使用 `Out-File` / `Write-Output` 写入项目内文件，因为会默认写入 utf8-bom 而非 utf-8。总是使用内置工具读写文件。
+
+### 不要主动发起对抗性审查
+
+内置工具 `verify` 会使用 sub-agent 运行一个独立的对抗式批评者审查代码。除非用户要求主动要求使用，不要主动使用，否则会产生大量费用。
+
+也不要使用 `agent` 工具拉起一个 sub-agent 执行等价任务。
+
 ##  测试环境
 
 本地有 cp38 ~ cp314 的测试环境，python 运行时提取自 uv 打包好的 portable python
@@ -45,18 +65,6 @@ envs/cp314t/python.exe
 ### 编译工具
 
 编译工具在 `mingw64/bin` 目录下，禁止自行在系统环境中安装编译工具。
-
-### 优先使用codewhale内置工具
-
-优先使用 codewhale 内置工具而不是调用外部命令行。如果遇到权限问题再去尝试使用命令行访问。如果在任务中多次需要访问一个外部路径，提示用户可以执行 `/trust add {PATH}` 添加信任，这样下一次可以使用内置工具进行访问。
-
-内置工具是使用 rust 编写的，比命令行更快。内置工具会过滤类似 `node_modules`，`build` 等目录，避免搜索无关内容消耗大量时间。
-
-- 在查找文件的时候优先使用 `file_search` 工具或者 `list_dir` 工具来查找文件，而不是使用 `find` 命令或者 `Get-ChildItem` 命令。
-
-- 在查找文件内容优先使用 `grep_files` 工具来查找，而不是使用 `grep` 命令或者 `Select-String` 命令。
-- 优先使用内置的 git 工具来查看仓库状态，而不是执行 git 命令。
-- 在批量编辑文件的时候优先使用内置的 `edit` / `fim_edit` / `apply_patch` 工具进行编辑，而不是编写临时脚本去执行替换。因为内置工具有丰富的模糊匹配与约束，自行编写替换代码很容易遇到 文件编码问题、换行符匹配问题、行号/内容匹配问题、特殊符号转义问题。不要怕多次调用工具进行单次编辑很麻烦，遇到编码问题转义问题反复修改临时脚本更麻烦。
 
 ### 运行python程序
 
@@ -161,33 +169,7 @@ EOF
 
 ## 1. 反向移植流程流程概述
 
-### 1.1 已有移植库跟随 upstream 新版本
-
-README 表格中已记录完成的库，upstream 发布新版本后按此流程跟进（idna 3.18→3.19 实例沉淀，2026-09）：
-
-1. 进入子模块 `repo/{DEP_NAME}`，`git fetch upstream --tags --prune`，用 `git tag --sort=-v:refname` 确认新 release tag；`git log --oneline <旧tag>..<新tag>` 查看变更范围
-
-2. **merge 基线必须是 release tag，不要 merge upstream/master**：master 上总有发布后的新 commit，直接 merge 会把未发布内容混进 backport。用 `git merge <vX.Y>`；提交后核对：`git log -1 HEAD^2` 应指向 release tag，且 `git rev-list HEAD` 中不出现 tag 之后的 commit。实例：idna 曾误 merge upstream/master 带入 v3.19 后的 codec 长度限制等未发布改动，被迫 reset 重做
-
-3. 解决冲突前先 `git show <backport commit>` 回顾 backport 改了什么，判断哪些已不需要：
-   - upstream 新版本若已自带 `from __future__ import annotations`（新版常见），backport 的 Optional/Union→`|` 注解改写大多已无必要，源码冲突整体取 theirs（upstream 版）即可；README 版本声明、CI 矩阵/构建产物步骤需要手动融合
-   - 发布/部署类 workflow（如 deploy.yml）在 fork 上继续删除（`git rm`），不用跟随 upstream 恢复
-
-4. 检查 merge 引入的 py38 影响——即使 upstream 宣称支持 3.9+，测试代码也可能用了更高版本的语法/API，逐项检查：
-   - **语法**：在 cp38 下 ast.parse/compileall `idna/`、`tests/`、`tools/`（含无扩展名脚本如 tools/idna-data）。实例：括号化 `with (a, b):` 在 3.8 解析失败（3.9+ 可），改写为逗号续行的多 context manager 形式
-   - **运行时 API**：grep 3.9+ 专属 API（`randbytes`/`removeprefix`/`removesuffix`/`bit_count`/`functools.cache` 等）。实例：`random.Random.randbytes`（3.9+）出现在 fuzz 测试里，用 `getrandbits` 等价实现
-   - **注解**：无 future import 的文件若签名/模块级注解用了 `list[int]` 等 3.9 语法，cp38 import 即报 TypeError，需补 `from __future__ import annotations`（实例：idna/intranges.py）
-   - **依赖**：upstream 的 hash-pinned 测试 requirements 可能含 cp38 解析不到的版本（coverage 7.7.0 起要求 3.9+）。用 `tmp\uv\uv.exe pip compile --generate-hashes --python-version 3.8 .github/requirements/test.in -o .github/requirements/test38.txt` 生成 cp38 专属文件（注释中不会带本机路径），CI 按 python 版本分别安装
-
-5. 验证：
-   - cp38 全量 + cp39~cp314 全量 pytest
-   - Windows GBK locale 下测试需 `$env:PYTHONUTF8="1"`（测试读取 README 等 UTF-8 文件时报 UnicodeDecodeError；CI 的 UTF-8 locale 无此问题，不算代码缺陷，不要为此改代码）
-   - ruff 用 CI 等价的路径范围（upstream 的 `ruff format --check` 可能只查 `idna tests/fuzz_*.py`，不查生成文件如 test_idna_uts46.py，用更宽范围会误报）
-   - 数据表类库用 cp38 跑生成器（如 `tools/idna-data make-libdata`，同样需 PYTHONUTF8）对比 checked-in 表，比较时忽略行尾差异；生成后 `git restore --worktree` 还原行尾
-
-6. 后续与普通流程一致：commit merge → 请求 review → push 触发 CI（第 4 章轮询）→ artifact 校验后放入 wheel（第 6 章）→ 主仓库更新（第 7 章，commit 信息 `Add: idna==3.19`，轻量 tag `20260908-idna==3.19`）。注意 update_submodules 会 stage 所有有本地新 commit 的子模块，提交前把与本次无关的（如 msgspec 遗留引用）用 `git restore --staged` 撤出
-
-### 1.2 本地修改与测试
+### 1.1 本地修改与测试
 
 1. 回退 git 历史到最新版本的 tag，因为我们需要构建的是最新版本的反向移植，不应该引入未发布的内容
 
@@ -220,6 +202,18 @@ README 表格中已记录完成的库，upstream 发布新版本后按此流程�
 
 1. 请求用户检查当前状态，通过则进行下一步。子仓库未完成迁移，不能更新主仓库
 2. 进入第 7 章节更新主仓库
+
+### 1.4 已有移植库跟随 upstream 新版本
+
+README 表格中已记录完成的库，upstream 发布新版本后按此流程跟进：
+
+1. 进入子模块 `repo/{DEP_NAME}`，`git fetch upstream --tags --prune`，用 `git tag --sort=-v:refname` 确认新 release tag；`git log --oneline <旧tag>..<新tag>` 查看变更范围
+2. **merge 基线必须是 release tag，不要 merge upstream/master**：master 上总有发布后的新 commit，直接 merge 会把未发布内容混进 backport。用 `git merge <vX.Y>`；提交后核对：`git log -1 HEAD^2` 应指向 release tag，且 `git rev-list HEAD` 中不出现 tag 之后的 commit。
+3. 解决冲突前先回顾 backport 改了什么，判断哪些已不需要：
+   - 检查 upstream 是否引入了
+   - upstream 新版本若已自带 `from __future__ import annotations`（新版常见），backport 的 Optional/Union→`|` 注解改写大多已无必要，源码冲突整体取 theirs（upstream 版）即可；README 版本声明、CI 矩阵/构建产物步骤需要手动融合
+   - 发布/部署类 workflow（如 deploy.yml）在 fork 上继续删除（`git rm`），不用跟随 upstream 恢复
+4. 后续与普通流程一致
 
 ## 2. 创建移植库流程
 
