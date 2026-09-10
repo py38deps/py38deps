@@ -55,3 +55,6 @@
 [submodule "repo/pygments"]
 	path = repo/pygments
 	url = git@github.com:py38deps/pygments.git
+[submodule "repo/rich"]
+	path = repo/rich
+	url = git@github.com:py38deps/rich.git
