@@ -61,3 +61,6 @@
 [submodule "repo/markupsafe"]
 	path = repo/markupsafe
 	url = git@github.com:py38deps/markupsafe.git
+[submodule "repo/typing_extensions"]
+	path = repo/typing_extensions
+	url = git@github.com:py38deps/typing_extensions.git
