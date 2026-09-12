@@ -64,3 +64,6 @@
 [submodule "repo/typing_extensions"]
 	path = repo/typing_extensions
 	url = git@github.com:py38deps/typing_extensions.git
+[submodule "repo/starlette"]
+	path = repo/starlette
+	url = git@github.com:py38deps/starlette.git
