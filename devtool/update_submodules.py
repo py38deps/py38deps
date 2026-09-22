@@ -19,7 +19,7 @@ import argparse
 import subprocess
 import sys
 
-from scripts.const import GITMODULES, PREFIX, ROOT
+from devtool.const import GITMODULES, PREFIX, ROOT
 
 
 def run_git(args, cwd):

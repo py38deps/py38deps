@@ -25,7 +25,7 @@ import re
 import subprocess
 import sys
 
-from scripts.const import GITMODULES, PREFIX, ROOT
+from devtool.const import GITMODULES, PREFIX, ROOT
 STABLE_TAG = re.compile(r"^v?\d+(\.\d+)*$")
 
 
