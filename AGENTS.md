@@ -258,7 +258,9 @@ git fetch upstream --tags
 git checkout <BACKPORT_BRANCH>
 ```
 
-## 3. 可用工具（会话内调用名 `mcp_github--actions_*`，注意双下划线）
+## 3. 可用工具（MCP 服务器名 `github-actions`，会话内调用名 `mcp_github-actions_*`）
+
+MCP 服务器已在 codewhale 中配置好（`codewhale mcp list` 可见：`github-actions` → `github-mcp-server.exe stdio --toolsets actions`），直接用 `start_mcp_server(name="github-actions")` 连接即可（不带 `server` 参数表示重连已配置的服务器，保留凭证）。工具名前缀是 `mcp_github-actions_`（连字符，不是双下划线）：
 
 | 工具                  | 方法                                                         | 用途                                                         |
 | --------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -277,10 +279,10 @@ git checkout <BACKPORT_BRANCH>
 
 ```jsonc
 // 1. 列最近 runs（按时间倒序，第一条即最新）
-mcp_github--actions_actions_list(owner, repo, method="list_workflow_runs", resource_id=<workflow_id 可选>, workflow_runs_filter={"branch": "main"})
+mcp_github-actions_actions_list(owner, repo, method="list_workflow_runs", resource_id=<workflow_id 可选>, workflow_runs_filter={"branch": "main"})
 
 // 2. 核对 head_sha == 本地 commit（官方 filter 不支持 head_sha，必须核对）
-mcp_github--actions_actions_get(owner, repo, method="get_workflow_run", resource_id=<run_id>)
+mcp_github-actions_actions_get(owner, repo, method="get_workflow_run", resource_id=<run_id>)
 // 返回的 head_sha 与本地 git rev-parse HEAD 对比；不一致则取下一条 run
 ```
 
@@ -288,7 +290,7 @@ mcp_github--actions_actions_get(owner, repo, method="get_workflow_run", resource
 
 ```jsonc
 // 每个 job 的状态（关键：job 可能先于 run 失败）
-mcp_github--actions_actions_list(owner, repo, method="list_workflow_jobs", resource_id=<run_id>)
+mcp_github-actions_actions_list(owner, repo, method="list_workflow_jobs", resource_id=<run_id>)
 ```
 
 判断逻辑：
@@ -301,14 +303,14 @@ mcp_github--actions_actions_list(owner, repo, method="list_workflow_jobs", resou
 ### 5.1 找到目标 run
 
 ```jsonc
-mcp_github--actions_actions_list(owner, repo, method="list_workflow_runs", resource_id=<workflow_id 可选>, workflow_runs_filter={...})
+mcp_github-actions_actions_list(owner, repo, method="list_workflow_runs", resource_id=<workflow_id 可选>, workflow_runs_filter={...})
 // 返回每个 run 的 id / run_number / name / status / conclusion / head_branch
 ```
 
 ### 5.2 拿日志签名 URL 并下载
 
 ```jsonc
-mcp_github--actions_actions_get(owner, repo, method="get_workflow_run_logs_url", resource_id=<run_id>)
+mcp_github-actions_actions_get(owner, repo, method="get_workflow_run_logs_url", resource_id=<run_id>)
 // 返回 logs_url（results-receiver.actions.githubusercontent.com 带签名，匿名可下，有时效，尽快下载）
 ```
 
@@ -349,14 +351,14 @@ print(dst)
 ### 6.1 列出 artifact 拿 id / size / digest
 
 ```jsonc
-mcp_github--actions_actions_list(owner, repo, method="list_workflow_run_artifacts", resource_id=<run_id>)
+mcp_github-actions_actions_list(owner, repo, method="list_workflow_run_artifacts", resource_id=<run_id>)
 // 返回 artifacts 数组：id、name、size_in_bytes、digest("sha256:...")、expired、expires_at
 ```
 
 ### 6.2 拿签名 URL
 
 ```jsonc
-mcp_github--actions_actions_get(owner, repo, method="download_workflow_run_artifact", resource_id=<artifact_id>)
+mcp_github-actions_actions_get(owner, repo, method="download_workflow_run_artifact", resource_id=<artifact_id>)
 // 返回 download_url（Azure Blob 带签名，匿名可下，有时效，尽快下载）
 ```
 
