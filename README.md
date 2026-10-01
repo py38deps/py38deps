@@ -6,7 +6,7 @@ As older versions of Python gradually end of like, many Python dependencies have
 
 | Dep Name          | Official Repo                                                | Our Repo                                                     | Latest Version | Backport Low To | LIMITS |
 | ----------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | -------------- |-----------------| ------ |
-| msgspec           | [msgspec/msgspec](https://github.com/msgspec/msgspec)        | [py38deps/msgspec](https://github.com/py38deps/msgspec)      | 0.21.1         | cp38~cp14       |        |
+| msgspec           | [msgspec/msgspec](https://github.com/msgspec/msgspec)        | [py38deps/msgspec](https://github.com/py38deps/msgspec)      | 0.21.1         | cp38~cp14       | [LIMITS](doc/LIMITS-msgspec.md) |
 | zstandard         | [indygreg/python-zstandard](https://github.com/indygreg/python-zstandard) | [py38deps/python-zstandard](https://github.com/py38deps/python-zstandard) | 0.25.0         | cp38~cp14       |        |
 | hyperframe        | [python-hyper/hyperframe](https://github.com/python-hyper/hyperframe) | [py38deps/hyperframe](https://github.com/py38deps/hyperframe) | 6.1.0          | cp38+           |        |
 | hpack             | [python-hyper/hpack](https://github.com/python-hyper/hpack) | [py38deps/hpack](https://github.com/py38deps/hpack) | 4.2.0          | cp38+           |        |
