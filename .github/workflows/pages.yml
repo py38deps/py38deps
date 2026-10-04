@@ -1,0 +1,88 @@
+name: pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      refetch_tag:
+        description: "tag to re-read even though it is recorded (optional)"
+        required: false
+        default: ""
+  release:
+    types: [published]      # publishing a release re-reads exactly that tag
+  schedule:
+    - cron: "17 4 * * *"    # safety net: assets uploaded before the release was published
+  push:
+    branches: ["master"]
+    paths:
+      - ".github/workflows/pages.yml"
+      - "pypisite/tags.py"
+      - "pypisite/fetch.py"
+      - "pypisite/build.py"
+      - "pypisite/common.py"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.index.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # tags come from the git clone, so history is required
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install packaging
+      - name: Restore the per-tag records
+        uses: actions/cache@v4
+        with:
+          path: pypisite/cache
+          key: py38deps-index-${{ github.run_id }}
+          restore-keys: py38deps-index-
+      - name: Stage 1 - tags (git history, re-releases deduplicated)
+        run: python pypisite/tags.py
+      - name: Stage 2 - release pages -> cache records
+        run: python pypisite/fetch.py --refetch "${{ inputs.refetch_tag || github.event.release.tag_name }}"
+      - name: Stage 3 - build the index
+        id: index
+        run: |
+          python pypisite/build.py
+          echo "changed=$(cat pypisite/cache/site.changed)" >> "$GITHUB_OUTPUT"
+      - name: Upload index diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: index-diagnostics
+          path: |
+            pypisite/cache/report.json
+            pypisite/cache/debug/
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Configure Pages
+        if: steps.index.outputs.changed == 'true'
+        uses: actions/configure-pages@v5
+      - name: Upload the site
+        if: steps.index.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pypisite/_site       # only HTML; the records stay in pypisite/cache
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
