@@ -2,6 +2,35 @@
 
 As older versions of Python gradually end of like, many Python dependencies have raised their minimum python version requirements. `py38deps` backports their latest versions to older Python versions, aiming to support at least Python 3.8.
 
+## Usage
+
+The backported wheels are published to a [pip index](https://py38deps.github.io/py38deps/simple/) built from this repository's tags and GitHub releases:
+
+```bash
+pip install --extra-index-url https://py38deps.github.io/py38deps/simple/ <package>
+```
+
+Keep PyPI as the primary index - packages that are not backported here, and their dependencies, still come from PyPI. To set it once and for all:
+
+```bash
+pip config set global.extra-index-url https://py38deps.github.io/py38deps/simple/
+```
+
+With `uv`:
+
+```bash
+uv pip install --index-url https://py38deps.github.io/py38deps/simple/ \
+               --extra-index-url https://pypi.org/simple/ <package>
+```
+
+There is also a [flat page](https://py38deps.github.io/py38deps/flat/) listing every wheel, for use with `--find-links`:
+
+```bash
+pip install --no-index --find-links https://py38deps.github.io/py38deps/flat/ <package>
+```
+
+Every link points straight at the wheel in its GitHub release and carries the recorded sha256. The index is rebuilt by CI from the repository's tags and release pages (`pypisite/`), so a new backport becomes installable as soon as its release is published.
+
 ## Maintained dependencies
 
 | Dep Name          | Official Repo                                                | Our Repo                                                     | Latest Version | Backport Low To | LIMITS |
