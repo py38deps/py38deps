@@ -125,9 +125,12 @@ class FetchStage:
     def run(self, tags):
         """Read what is missing; returns (records, pages_read)."""
         self.store.directory.mkdir(parents=True, exist_ok=True)
-        removed = self.store.drop_orphans(tags)
-        if removed:
-            print(f"stage 2: dropped {removed} record(s) of tags stage 1 did not keep")
+        removed, dropped_debug = self.store.drop_orphans(tags)
+        if removed or dropped_debug:
+            print(
+                f"stage 2: dropped {removed} record(s) and {dropped_debug} debug page(s) "
+                "that no longer apply"
+            )
 
         pending, records = self.pending(tags)
         if not pending:

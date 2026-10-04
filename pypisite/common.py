@@ -168,9 +168,15 @@ class CacheStore:
         write_text(debug_dir / f"{self.safe_name(tag)}.html", body)
 
     def drop_orphans(self, tags):
-        """Delete records that are not in the current tag list.
+        """Prune records and debug pages that no longer belong to the tag list.
+
+        A debug page is kept only while its tag still exists and still has no
+        uploaded assets: once the release is published (or the tag is dropped)
+        the raw page has served its purpose, and a stale one would suggest a
+        problem that no longer exists.
 
         tags.json, report.json and the site.* state files are never touched.
+        Returns (records_removed, debug_pages_removed).
         """
         keep = {self.record_path(tag).name for tag in tags}
         reserved = (TAGS_NAME, REPORT_NAME, "site.digest", "site.changed")
@@ -180,7 +186,16 @@ class CacheStore:
                 continue
             path.unlink()
             removed += 1
-        return removed
+
+        wanted = {
+            f"{self.safe_name(tag)}.html" for tag in tags if not (self.read_record(tag) or {}).get("found")
+        }
+        dropped_debug = 0
+        for path in (self.directory / "debug").glob("*.html"):
+            if path.name not in wanted:
+                path.unlink()
+                dropped_debug += 1
+        return removed, dropped_debug
 
     # ----------------------------------------------------------- stage 1 / 3 files
 
