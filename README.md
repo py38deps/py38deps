@@ -16,12 +16,21 @@ Keep PyPI as the primary index - packages that are not backported here, and thei
 pip config set global.extra-index-url https://py38deps.github.io/py38deps/simple/
 ```
 
-With `uv`:
+With `uv` (put your own index, if any, in the `--index-url` slot):
 
 ```bash
-uv pip install --index-url https://py38deps.github.io/py38deps/simple/ \
-               --extra-index-url https://pypi.org/simple/ <package>
+uv pip install --index-url https://pypi.org/simple/ \
+               --extra-index-url https://py38deps.github.io/py38deps/simple/ \
+               --index-strategy unsafe-best-match <package>
 ```
+
+`--index-strategy unsafe-best-match` is what makes uv behave like pip: it merges
+the candidates of both indexes. With uv's default `first-index` strategy the
+candidates for a package are limited to the first index that lists it, so a
+version that only PyPI has (for example `msgspec==0.18.6` on cp38) fails with
+"No solution found". The "unsafe" in the name is about dependency confusion in
+general; here the extra index is this repository's own, so merging the two
+indexes is the point.
 
 There is also a [flat page](https://py38deps.github.io/py38deps/flat/) listing every wheel, for use with `--find-links`:
 
