@@ -9,6 +9,10 @@ version therefore ends up missing from the index.
 
 Output: pypisite/cache/tags.json (effective tags + superseded pairs).
 
+Superseded tags are neither warned about nor listed in the CI summary: dropping
+an older tag of a re-released version is normal bookkeeping, and only stage 3
+speaks up if that leaves a version missing from the index.
+
     python pypisite/tags.py
 """
 
@@ -80,23 +84,10 @@ class TagResolver:
                 "superseded": superseded,
             }
         )
-        print(f"stage 1: {len(records)} tag(s) in the repository, {len(effective)} effective, {len(superseded)} superseded")
+        print(f"stage 1: {len(records)} tag(s) -> {len(effective)} effective")
         print(f"stage 1: wrote {path}")
 
-        lines = [
-            "### stage 1 - tags",
-            "",
-            f"- tags in the repository: **{len(records)}**",
-            f"- effective tags: **{len(effective)}**",
-            f"- superseded by a newer tag: **{len(superseded)}** (expected, not a warning)",
-            f"- tags file: `{path}`",
-            "",
-        ]
-        if superseded:
-            lines += ["| dropped tag | kept tag | version |", "| --- | --- | --- |"]
-            lines += [f"| `{d['tag']}` | `{d['by']}` | {d['dep']} {d['version']} |" for d in superseded]
-            lines += [""]
-        write_summary("\n".join(lines))
+        write_summary(f"### stage 1 - tags\n\n- tags: **{len(records)}** -> **{len(effective)}** effective\n")
         return 0
 
 

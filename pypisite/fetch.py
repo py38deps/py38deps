@@ -127,11 +127,11 @@ class FetchStage:
         self.store.directory.mkdir(parents=True, exist_ok=True)
         removed = self.store.drop_orphans(tags)
         if removed:
-            print(f"stage 2: dropped {removed} record(s) for tags that stage 1 did not keep")
+            print(f"stage 2: dropped {removed} record(s) of tags stage 1 did not keep")
 
         pending, records = self.pending(tags)
-        print(f"stage 2: {len(pending)} release page(s) to read, {len(tags) - len(pending)} already recorded")
         if not pending:
+            print(f"stage 2: {len(tags)} record(s) on file, nothing to read")
             return records, 0
 
         results = self._fetch_all(pending)
@@ -141,14 +141,15 @@ class FetchStage:
             if not found:
                 empty_tags.append(tag)
                 self.store.write_debug_page(tag, body)
+        print(f"stage 2: read {len(results)} page(s), {len(tags)} tag(s) recorded")
+
         if empty_tags:
-            print(
-                f"stage 2: raw page(s) for {len(empty_tags)} asset-less tag(s) saved under "
-                f"{self.store.directory / 'debug'}"
-            )
+            debug = self.store.directory / "debug"
+            print(f"stage 2: raw page(s) saved under {debug}")
             self._control_check(records)
-            for tag in empty_tags:
-                self.warn(f"[{tag}] no uploaded assets on the release page - tag skipped")
+            # One line instead of one warning per tag: the list is repeated in
+            # stage 3's skipped table anyway.
+            self.warn(f"{len(empty_tags)} tag(s) without uploaded assets: " + ", ".join(sorted(empty_tags)))
         return records, len(results)
 
     def _control_check(self, records):
@@ -184,13 +185,11 @@ def main(argv=None):
     records, read = FetchStage(store, warn, refetch=refetch, no_cache=args.no_cache).run(tags)
     recorded = sum(1 for tag in tags if records.get(tag) is not None)
 
-    print(f"stage 2: {recorded} tag(s) recorded, {len(tags) - recorded} still missing")
+    print(f"stage 2: {recorded}/{len(tags)} tag(s) have a record")
     lines = [
         "### stage 2 - release pages",
         "",
-        f"- effective tags: **{len(tags)}**",
-        f"- release pages read this run: **{read}**",
-        f"- tags with a record: **{recorded}**",
+        f"- pages read: **{read}**, records: **{recorded}/{len(tags)}**",
         "",
     ]
     if warn.messages:

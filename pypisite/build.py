@@ -85,7 +85,7 @@ class SiteBuilder:
             return [], "no uploaded assets"
         without_digest = [name for name, digest in wheels if not digest]
         if without_digest:
-            self.warn(f"[{tag}] {len(without_digest)} wheel(s) have no sha256 on the release page - served without a hash")
+            self.warn(f"[{tag}] {len(without_digest)} wheel(s) without sha256 - served unhashed")
 
         entries = []
         versions = set()
@@ -93,7 +93,7 @@ class SiteBuilder:
             try:
                 project, version, _build, _tags = parse_wheel_filename(name)
             except Exception as exc:  # noqa: BLE001 - one bad filename must not kill the run
-                self.warn(f"[{tag}] unparsable wheel filename {name!r} ({exc}) - file ignored")
+                self.warn(f"[{tag}] unparsable wheel filename {name!r} ({exc}) - ignored")
                 continue
             versions.add(str(version))
             entries.append(
@@ -111,7 +111,7 @@ class SiteBuilder:
         if not entries:
             return [], "no parsable wheel assets"
         if declared is not None and versions != {declared}:
-            return [], f"wheel version {sorted(versions)} does not match version {declared} declared by the tag"
+            return [], f"wheel version {','.join(sorted(versions))} != tag version {declared}"
         return entries, None
 
     def assemble(self, payload):
@@ -128,7 +128,7 @@ class SiteBuilder:
             if reason is not None:
                 skipped.append((tag, reason))
                 if reason != "no uploaded assets":  # stage 2 already reported those
-                    self.warn(f"[{tag}] {reason} - tag skipped")
+                    self.warn(f"[{tag}] skipped: {reason}")
                 continue
 
             for entry in entries:
@@ -139,17 +139,16 @@ class SiteBuilder:
                 elif current["tag"] == tag:
                     current["records"].append(entry)
 
-        # Stage 1 dropped an older tag for a version that was released twice; if
-        # the newer tag has no assets yet, that version is missing from the index
-        # - say it out loud.
-        for dropped in payload.get("superseded", []):
-            kept = self.store.read_record(dropped["by"])
-            if kept is None or not kept.get("found"):
-                self.warn(
-                    f"{dropped['dep']} {dropped['version']}: the older tag {dropped['tag']} was dropped as "
-                    f"superseded and the newer tag {dropped['by']} has no usable assets yet - this version is "
-                    f"not in the index (publish its release assets, or re-run stage 2 with --refetch)"
-                )
+        # Stage 1 dropped the older tag of a re-released version; if the newer
+        # tag has no assets yet, that version is missing from the index. One
+        # line, because the skipped table below already names the tags.
+        missing = [
+            f"{dropped['dep']} {dropped['version']}"
+            for dropped in payload.get("superseded", [])
+            if not (self.store.read_record(dropped["by"]) or {}).get("found")
+        ]
+        if missing:
+            self.warn("missing from the index until their release assets appear: " + ", ".join(missing))
 
         if not accepted:
             raise Fatal("every tag was skipped - the release page layout probably changed")
@@ -265,23 +264,21 @@ class SiteBuilder:
             }
         )
         print(
-            f"projects={len(names)} wheels={wheels} tags={len(payload['tags'])} skipped={len(skipped)} out={self.out_dir}\n"
-            f"site digest={digest[:12]} live={live[:12] if live else 'unknown'} changed={changed}\n"
-            f"report={report}"
+            f"stage 3: projects={len(names)} wheels={wheels} tags={len(payload['tags'])} skipped={len(skipped)} "
+            f"changed={changed} digest={digest[:12]} live={live[:12] if live else 'unknown'}\n"
+            f"stage 3: report={report}"
         )
 
         lines = [
             "### stage 3 - index",
             "",
-            f"- effective tags: **{len(payload['tags'])}**, superseded tags: **{len(payload.get('superseded', []))}**",
-            f"- projects: **{len(names)}**, wheels: **{wheels}**",
-            f"- skipped tags: **{len(skipped)}**",
-            f"- site changed: **{'yes' if changed else 'no (deployment skipped)'}**",
-            f"- site digest: `{digest[:12]}`, live: `{live[:12] if live else 'unknown'}`",
+            f"- **{len(names)}** projects, **{wheels}** wheels from **{len(payload['tags'])}** tags",
+            f"- site **{'changed' if changed else 'unchanged (no deployment)'}**: "
+            f"`{digest[:12]}` vs live `{live[:12] if live else 'unknown'}`",
             "",
         ]
         if skipped:
-            lines += ["| tag | reason |", "| --- | --- |"] + [f"| `{tag}` | {reason} |" for tag, reason in skipped] + [""]
+            lines += ["| skipped tag | reason |", "| --- | --- |"] + [f"| `{tag}` | {reason} |" for tag, reason in skipped] + [""]
         if self.warn.messages:
             lines += ["### stage 3 warnings", ""] + [f"- {message}" for message in self.warn.messages] + [""]
         write_summary("\n".join(lines))
