@@ -171,7 +171,7 @@ class SiteBuilder:
                 "  </head>",
                 "  <body>",
                 "    <h1>py38deps wheel mirror</h1>",
-                f"    <p>{names} projects, {wheels} wheels. "
+                f"    <p>{len(names)} projects, {wheels} wheels. "
                 f'Binaries live on <a href="https://github.com/{self.repo}/releases">GitHub Releases</a>.</p>',
                 f'    <pre>pip install --extra-index-url {html.escape(self.usage_index_url)} &lt;package&gt;</pre>',
                 '    <p>Simple index: <a href="simple/">simple/</a> &middot; '
