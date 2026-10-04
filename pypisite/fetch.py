@@ -6,9 +6,10 @@ tag without a record, reads
     https://github.com/<repo>/releases/expanded_assets/<tag>
 
 writing pypisite/cache/<tag>.json with the page facts: uploaded asset names and
-their sha256 digests. A tag that is already recorded is never read again, so a
-steady-state run makes no request at all; --refetch <tag> re-reads one tag (the
-workflow passes the tag of a release event) and --no-cache re-reads everything.
+their sha256 digests. Tags that have assets are never read again, so a
+steady-state run reads nothing but the few tags still recorded as asset-less
+(their release may be published later - see pending() below); --refetch <tag>
+re-reads one tag and --no-cache re-reads everything.
 
 Assets are looked up per tag - release lists are never paged through. When a
 page shows no uploaded assets, the raw HTML is kept under pypisite/cache/debug/
@@ -111,9 +112,24 @@ class FetchStage:
         self.workers = workers
 
     def pending(self, tags):
-        """Split the effective tags into "read now" and "already recorded"."""
+        """Tags to read: never seen, recorded as asset-less, or explicitly asked for.
+
+        Asset-less records are re-read on every run. A release can be published
+        long after its tag was first checked, and the release event cannot always
+        reach this workflow (a tag may point at a commit that predates it), so
+        re-reading those few tiny pages is the only dependable way for such a
+        release to appear in the index. Tags that have assets are still never
+        read again.
+        """
         records = {tag: self.store.read_record(tag) for tag in tags}
-        pending = [tag for tag in tags if self.no_cache or tag in self.refetch or records[tag] is None]
+        pending = [
+            tag
+            for tag in tags
+            if self.no_cache
+            or tag in self.refetch
+            or records[tag] is None
+            or not records[tag].get("found")
+        ]
         return pending, records
 
     def _fetch_all(self, tags):
@@ -137,22 +153,35 @@ class FetchStage:
             print(f"stage 2: {len(tags)} record(s) on file, nothing to read")
             return records, 0
 
+        previous = dict(records)  # before the records are overwritten
         results = self._fetch_all(pending)
-        empty_tags = []
+        empty_tags, newly_empty, recovered = [], [], []
         for tag, (assets, found, body) in results.items():
+            was_empty = (previous.get(tag) or {}).get("found") is False
             records[tag] = self.store.write_record(tag, assets, found)
-            if not found:
-                empty_tags.append(tag)
-                self.store.write_debug_page(tag, body)
+            if found:
+                if was_empty:
+                    recovered.append(tag)
+                continue
+            empty_tags.append(tag)
+            if not was_empty:
+                newly_empty.append(tag)
+            self.store.write_debug_page(tag, body)
         print(f"stage 2: read {len(results)} page(s), {len(tags)} tag(s) recorded")
+        for tag in recovered:
+            print(f"stage 2: {tag} now has assets")
 
         if empty_tags:
-            debug = self.store.directory / "debug"
-            print(f"stage 2: raw page(s) saved under {debug}")
+            print(f"stage 2: raw page(s) saved under {self.store.directory / 'debug'}")
             self._control_check(records)
-            # One line instead of one warning per tag: the list is repeated in
-            # stage 3's skipped table anyway.
-            self.warn(f"{len(empty_tags)} tag(s) without uploaded assets: " + ", ".join(sorted(empty_tags)))
+            if newly_empty:
+                # One line instead of one warning per tag. Tags already known to
+                # be asset-less stay in stage 3's skipped table only, so the same
+                # warning does not repeat on every run.
+                self.warn(f"{len(newly_empty)} tag(s) without uploaded assets: " + ", ".join(sorted(newly_empty)))
+            known = len(empty_tags) - len(newly_empty)
+            if known:
+                print(f"stage 2: {known} tag(s) still without uploaded assets")
         return records, len(results)
 
     def _control_check(self, records):
