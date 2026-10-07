@@ -185,6 +185,8 @@ EOF
 > 对于需要编译的库，才安装到环境中。
 >
 > 本地测试只需要验证所有测试通过，tox/mypy/ruff/lint 验证通过（如果项目有配置），无需模拟 CI 环境运行 CI 脚本，CI 内容让真实 CI 去运行。
+>
+> 注意 `lint` 的边界：tox 的 `lint` env 是 `pre-commit run --all-files`，它**不在 CI 中运行**（tox-gh-actions 只跑 gh-actions 映射里的 env），且需要联网从 github 拉取 hook 仓库。需要 lint 检查时用本地 ruff 二进制跑 `ruff check` + `ruff format --check`（见「本地 tox 验证」章节），不要折腾 pre-commit。
 
 ### 1.2 CI构建
 
@@ -557,8 +559,10 @@ cd "E:\ProgramData\Pycharm\py38deps\repo\<DEP_NAME>"
 
 注意事项：
 
-- `--notest` 只创建 env 并安装依赖，用于快速验证解释器查找、依赖解析、sdist 构建；完整验证必须跑 `tox --parallel auto`（等价 CI 的 `tox --parallel auto --notest` + `tox --parallel 0`）
+- `--notest` 只创建 env 并安装依赖，用于快速验证解释器查找、依赖解析、sdist 构建；完整验证必须跑全部 env（等价 CI 的 `tox --parallel auto --notest` + `tox --parallel 0`）
 - tox-gh-actions 只保留 gh-actions 映射中、且存在于 `env_list` 的 env（未定义的残留 env 名如 h2spec 会被静默过滤，不会报错）
+- **`lint` env（pre-commit）不在 CI 运行范围内，不要跑它**：gh-actions 映射里只有 `pyXY` 系列（pytest + mypy），`lint` / `typing` / `docs` / `pypi-description` / `coverage-report` 都会被静默过滤，CI 中不存在这些 job。跑 `lint` 会让 pre-commit 从 github 逐个拉取 hook 仓库（网络脆弱、耗时长、向 `~/.cache/pre-commit` 写数百 MB，C 盘紧张时直接失败），且它检查的内容大部分可由本地工具覆盖——**用本地 ruff 二进制跑 `ruff check` + `ruff format --check`**（如 `envs/cp310/Scripts/ruff.exe`，版本最接近项目 `.pre-commit-config.yaml` 声明的 ruff），mypy 由 `pyXY-mypy` env 覆盖（那个在 CI 中运行）
+- 用 `--parallel auto` 提速时注意：同版本的 `pyXY-mypy` 与 `pyXY-crypto-mypy` 并发会竞争项目根目录的 `.mypy_cache`，偶发 `error: INTERNAL ERROR` 假失败（实例：pyjwt 2.14.0 跟进时 cp311 出现，串行重跑即通过）。遇到 mypy 内部错误先按并发问题排查，用与 CI 一致的串行 `python -m tox` 重跑确认
 - 映射里 `base_python` 指定了特定版本解释器的 env（如 packaging 的 `python3.14`），本地必须提供对应解释器（硬链接 + PATH），否则报 `could not find python interpreter matching any of the specs`——CI runner 的系统 python 未必有该版本，本地验证能提前发现这类问题
 - **tox 会自动检测并使用 uv**：PATH 中若存在 `uv`（例如 `envs/*/Scripts/uv.exe`），tox 4 会用 uv 创建 venv 并安装依赖。这会向 `%LOCALAPPDATA%\uv\cache` 写缓存，且 tox 找不到 base python 时 uv 会**自动下载完整 python 到用户目录**（实例：pyjwt 的 lint env 需要 python3.10，PATH 只有 cp38 时 uv 下载了整个 python 3.10）。因此本地 tox 模拟前：
   - **先删除 `envs/*/Scripts/uv.exe`**（cp38/cp39/cp310/cp311/cp312 各有一个，如存在），让 tox 回到标准 virtualenv 模式；不要 `pip install uv` 到任何 env
