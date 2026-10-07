@@ -3,7 +3,7 @@
 This document records behavioral differences between the anyio backport
 (repo/anyio) and upstream (agronholm/anyio) **at runtime** on old Python versions
 (3.8 and 3.9, with some notes on the 3.10/3.11 boundaries). The backport targets
-Python 3.8+ while upstream 4.14.2 requires 3.10+, so every difference below is
+Python 3.8+ while upstream 4.15.1 requires 3.10+, so every difference below is
 specific to our fork. Test-suite and type-hint differences are out of scope.
 
 ## 1. Cancellation reasons cannot be delivered inside tasks on Python 3.8
@@ -27,10 +27,14 @@ Consequences:
 
 - Inside a task, `str(CancelledError)` is empty on 3.8, so any code relying on the
   exception message of an in-task cancellation must not do so on 3.8.
-- The Trio backend has the same limitation on 3.8: `CancelScope.cancel(reason)` only
-  exists in Trio >= 0.30, while the newest Trio available on Python 3.8 is 0.27
-  (see the `_CANCEL_ACCEPTS_REASON` wrapper in `_trio.py`). `trio.Cancelled` is a
-  singleton whose `str()` is always `"Cancelled"`.
+- The Trio backend only hits the same limitation when it runs on a Trio release
+  older than 0.31: `CancelScope.cancel(reason)` gained its `reason` argument in Trio
+  0.31.0, and the `_CANCEL_ACCEPTS_REASON` wrapper in `_trio.py` detects this at import
+  time and silently drops the reason when the installed Trio does not support it.
+  Upstream calls `cancel(reason)` unconditionally because the oldest Trio it supports
+  is 0.32; the backport keeps working with the older Trio releases that are usable on
+  3.8/3.9. `trio.Cancelled` is a singleton whose `str()` is always `"Cancelled"`, so
+  the reason never appears in the Trio cancellation message regardless of version.
 
 This is a hard CPython/Trio limitation: the 3.8 branch of `_deliver_cancellation()`
 cannot be extended to put the reason into the in-task exception without rewriting the
@@ -87,29 +91,3 @@ guarantees the interpreter can exit even if the selector thread has not been sto
 Code paths that call `get_event_loop()` indirectly (e.g. asyncio primitive
 construction, see section 2) therefore behave differently on each version. Code in the
 backend always prefers `get_running_loop()`.
-
-## 7. `asyncio.get_child_watcher()` was removed in Python 3.12
-
-`_forcibly_shutdown_process_pool_on_exit()` in `_asyncio.py` only queries the child
-watcher on Python < 3.12 (the API was deprecated since 3.8 and removed in 3.12).
-
-## 8. Trio version is pinned per Python version
-
-`pyproject.toml` pins the trio extra per interpreter version because no single Trio
-release supports 3.8 through 3.14 (upstream declares an unconditional
-`trio >= 0.32.0`):
-
-| Python | trio pin | Notes |
-| --- | --- | --- |
-| 3.8 | `>= 0.26.1, < 0.28` | no `CancelScope.cancel(reason)` (section 1); zero-capacity `CapacityLimiter` not supported |
-| 3.9 | `>= 0.31, < 0.32` | |
-| 3.10+ | `>= 0.32` | matches upstream |
-
-## 9. Other runtime differences
-
-- **`requires-python`**: `>= 3.8` (upstream: `>= 3.10`), so the backport installs on
-  3.8/3.9 instead of failing at resolution time.
-- **`asyncio` cancellation semantics**: upstream assumes `Task.cancel(msg)` exists
-  (3.9+); the backport's `_deliver_cancellation()` uses the marker mechanism on 3.8
-  (section 1). The `Task.uncancel()` bookkeeping is inert below 3.11 on both upstream
-  and the backport (upstream already gates it on `sys.version_info >= (3, 11)`).

@@ -56,7 +56,7 @@ Every link points straight at the wheel in its GitHub release and carries the re
 | trio              | [python-trio/trio](https://github.com/python-trio/trio) | [py38deps/trio](https://github.com/py38deps/trio) | 0.34.0         | cp38+           |        |
 | PyAV              | [PyAV-Org/PyAV](https://github.com/PyAV-Org/PyAV) | [py38deps/PyAV](https://github.com/py38deps/PyAV) | 18.1.0         | cp38~cp14       |        |
 | hypercorn         | [pgjones/hypercorn](https://github.com/pgjones/hypercorn) | [py38deps/hypercorn](https://github.com/py38deps/hypercorn) | 0.18.0         | cp38+           |        |
-| anyio             | [agronholm/anyio](https://github.com/agronholm/anyio) | [py38deps/anyio](https://github.com/py38deps/anyio) | 4.14.2         | cp38+           | [LIMITS](doc/LIMITS-anyio.md) |
+| anyio             | [agronholm/anyio](https://github.com/agronholm/anyio) | [py38deps/anyio](https://github.com/py38deps/anyio) | 4.15.1         | cp38+           | [LIMITS](doc/LIMITS-anyio.md) |
 | python-multipart  | [Kludex/python-multipart](https://github.com/Kludex/python-multipart) | [py38deps/python-multipart](https://github.com/py38deps/python-multipart) | 0.0.32         | cp38+           |        |
 | truststore        | [sethmlarson/truststore](https://github.com/sethmlarson/truststore) | [py38deps/truststore](https://github.com/py38deps/truststore) | 0.10.4         | cp38+           | [LIMITS](doc/LIMITS-truststore.md) |
 | PyJWT             | [jpadilla/pyjwt](https://github.com/jpadilla/pyjwt) | [py38deps/pyjwt](https://github.com/py38deps/pyjwt) | 2.13.0         | cp38+           |        |
