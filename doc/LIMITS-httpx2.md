@@ -30,7 +30,7 @@ larger transient allocation than upstream.
 ## 2. Dependency resolution relies on the py38deps backport wheels
 
 httpx2/httpcore2 keep the **upstream version requirements unchanged**
-(`anyio>=4.10`, `idna>=3.18`, `trio>=0.33.0,<1.0`, `truststore>=0.10`,
+(`anyio>=4.10`, `idna>=3.18`, `trio>=0.34.0,<1.0`, `truststore>=0.10`,
 `zstandard>=0.23.0` for the `zstd` extra). Several of these packages have no
 PyPI release supporting < 3.10:
 
@@ -43,7 +43,7 @@ PyPI release supporting < 3.10:
   per-label fallback in `src/httpx2/httpx2/_urls.py`, so `URL.host` output
   matches upstream, and other IDNA encode/decode differences between idna
   3.15 and 3.18 may still surface in edge cases.
-- `trio>=0.33.0,<1.0` requires Python >= 3.10; on 3.8/3.9 the py38deps trio
+- `trio>=0.34.0,<1.0` requires Python >= 3.10; on 3.8/3.9 the py38deps trio
   backport wheel is needed.
 - `truststore>=0.10` has **no PyPI release supporting < 3.10 at all** (every
   release declares `>= 3.10`); the py38deps truststore backport wheel is
@@ -74,16 +74,18 @@ is identical to upstream.
   `3.10 <= python_version <= '3.13'` and installs `zstandard>=0.23.0` on
   `python_version < '3.10'` (see section 1). On 3.14+ nothing is installed, as
   upstream.
-- **`contextlib.aclosing` and `contextlib.nullcontext` async support** are
-  backported inside httpx2 source (both are 3.10+ stdlib additions); behavior
-  is identical, no user-visible difference.
+- **`contextlib.aclosing`, async support in `contextlib.nullcontext` and
+  `dataclasses.dataclass(kw_only=...)`** are 3.10+ stdlib additions that the
+  backport provides itself (`httpx2._models`, `httpx2.websockets._api`,
+  `httpcore2._utils` and `httpx2._config`); constructors, context-manager
+  behavior and equality are identical, no user-visible difference.
 - **IPv6 zone identifiers in URLs** (`https://[fe80::1%25eth0]`) are handled
   by stripping the `%zone` suffix before `ipaddress.IPv6Address` validation on
   3.8 (the stdlib only supports zone ids from 3.9); the zone is re-attached
   unchanged and origin normalization matches upstream (verified by the
   upstream test suite).
 
-## 5. Summary of backport-specific runtime differences vs upstream v2.12.0
+## 5. Summary of backport-specific runtime differences vs upstream v2.13.1
 
 | Area | Upstream (>= 3.10) | Backport on 3.8/3.9 |
 | --- | --- | --- |
