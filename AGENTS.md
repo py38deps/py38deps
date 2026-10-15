@@ -415,7 +415,7 @@ print("extracted")
 执行脚本更新所有 submodules 的引用
 
 ```bash
-<python> -m scripts.update_submodules
+<python> -m devtool.update_submodules
 ```
 
 ### 7.2 更新 README.md 的适配表格
