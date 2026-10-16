@@ -65,6 +65,6 @@ Every link points straight at the wheel in its GitHub release and carries the re
 | markdown-it-py    | [executablebooks/markdown-it-py](https://github.com/executablebooks/markdown-it-py) | [py38deps/markdown-it-py](https://github.com/py38deps/markdown-it-py) | 4.2.0          | cp38+           |        |
 | Pygments          | [pygments/pygments](https://github.com/pygments/pygments) | [py38deps/pygments](https://github.com/py38deps/pygments) | 2.21.0         | cp38+           |        |
 | rich              | [Textualize/rich](https://github.com/Textualize/rich) | [py38deps/rich](https://github.com/py38deps/rich) | 15.0.0         | cp38+           |        |
-| MarkupSafe        | [pallets/markupsafe](https://github.com/pallets/markupsafe) | [py38deps/markupsafe](https://github.com/py38deps/markupsafe) | 3.0.3          | cp38~cp314      |        |
+| MarkupSafe        | [pallets/markupsafe](https://github.com/pallets/markupsafe) | [py38deps/markupsafe](https://github.com/py38deps/markupsafe) | 3.0.4          | cp38~cp315      |        |
 | typing_extensions | [python/typing_extensions](https://github.com/python/typing_extensions) | [py38deps/typing_extensions](https://github.com/py38deps/typing_extensions) | 4.16.0         | cp38+           | [LIMITS](doc/LIMITS-typing_extensions.md) |
 | starlette         | [Kludex/starlette](https://github.com/Kludex/starlette) | [py38deps/starlette](https://github.com/py38deps/starlette) | 1.8.0          | cp38+           | [LIMITS](doc/LIMITS-starlette.md) |
