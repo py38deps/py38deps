@@ -67,3 +67,6 @@
 [submodule "repo/starlette"]
 	path = repo/starlette
 	url = git@github.com:py38deps/starlette.git
+[submodule "repo/watchfiles"]
+	path = repo/watchfiles
+	url = git@github.com:py38deps/watchfiles.git
