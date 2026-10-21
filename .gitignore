@@ -2,3 +2,6 @@
 pypisite/cache/
 pypisite/_site/
 __pycache__/
+
+# Scratch directories (see AGENTS.md "临时文件要求")
+/temp/

@@ -59,7 +59,7 @@ envs/cp314t/python.exe
 - **不要在 `envs/*` 里安装 uv**（`pip install uv`）：tox 4 检测到 PATH 中的 uv 会自动切换到 uv 模式（pyvenv.cfg 写 `uv = x.y.z` 标记），把下载缓存写入 `%LOCALAPPDATA%\uv\cache`（无自动清理），并在找不到指定版本 python 时自动下载完整 python 到用户目录
 - **禁止裸跑 uv 的 python 管理命令**：`uv venv` / `uv run` / `uv python install` 不带 `--python` 参数时，uv 找不到解释器会静默下载 python-build-standalone（150~250MB/个，下载缓存与安装副本双份占用）
 - **创建 venv / 安装依赖一律显式指向 envs 的 python**：`uv venv --python envs\cp38\python.exe`、`uv pip install --python envs\cp38\python.exe ...`、`python -m venv --python envs\cp38\python.exe ...`
-- 项目必须用 uv 时（如 httpx2 的 `uv sync --frozen`）：只能调用 `tmp\uv\uv.exe`（不要往任何 env 里 `pip install uv`），且必须加 `--python` 指向 envs 的解释器
+- 项目必须用 uv 时（如 httpx2 的 `uv sync --frozen`）：只能调用 `temp\uv\uv.exe`（不要往任何 env 里 `pip install uv`），且必须加 `--python` 指向 envs 的解释器
 - **自查信号**：`.tox/*/pyvenv.cfg` 或 venv 的 `pyvenv.cfg` 中 `home` 指向 `C:\Users\...\uv\python`（而非 `envs\cp*`）即违规；用户目录出现 `uv\cache` / `uv\python` 说明有工具自动下载过 python，应提醒用户清理
 
 ### 编译工具
@@ -152,7 +152,7 @@ EOF
 
 ### 临时文件要求
 
-如果需要下载临时文件，下载到项目根目录的 tmp 文件夹，不要下载到系统 temp 目录
+如果需要下载临时文件，下载到项目根目录的 temp 文件夹，不要下载到系统临时目录
 
 ### 禁止事项
 
@@ -300,7 +300,7 @@ mcp_github-actions_actions_list(owner, repo, method="list_workflow_jobs", resour
 1. 任一 job `conclusion: failure`（run 可能还在 `in_progress`，其他 job 可能还在跑）→ **立即停止轮询，进入修复**，不等待其他 job 跑完
 2. 全部 job `conclusion: success` → 进入下载 artifact
 
-## 5. 拉取 log 流程（下载到 tmp 缓存）
+## 5. 拉取 log 流程（下载到 temp 缓存）
 
 ### 5.1 找到目标 run
 
@@ -320,8 +320,8 @@ mcp_github-actions_actions_get(owner, repo, method="get_workflow_run_logs_url", 
 
 ```powershell
 cd "E:\ProgramData\Pycharm\py38deps"
-New-Item -ItemType Directory -Force -Path "tmp\msgspec" | Out-Null
-curl.exe -sL --proxy http://127.0.0.1:7890 -o "tmp\msgspec\logs_27066034896.zip" "<logs_url>"
+New-Item -ItemType Directory -Force -Path "temp\msgspec" | Out-Null
+curl.exe -sL --proxy http://127.0.0.1:7890 -o "temp\msgspec\logs_27066034896.zip" "<logs_url>"
 ```
 
 ### 5.3 解压到同名文件夹（用 Python zipfile，不用 Windows tar.exe）
@@ -329,8 +329,8 @@ curl.exe -sL --proxy http://127.0.0.1:7890 -o "tmp\msgspec\logs_27066034896.zip"
 ```powershell
 @'
 import zipfile
-src = r"tmp\msgspec\logs_27066034896.zip"
-dst = r"tmp\msgspec\logs_27066034896"
+src = r"temp\msgspec\logs_27066034896.zip"
+dst = r"temp\msgspec\logs_27066034896"
 z = zipfile.ZipFile(src)
 assert z.testzip() is None, "zip corrupted"   # 完整性校验
 z.extractall(dst)
@@ -338,17 +338,17 @@ print(dst)
 '@ | & "E:\ProgramData\Pycharm\py38deps\envs\cp38\python.exe"
 ```
 
-解压后结构：`tmp/{repo}/logs_{id}/` 内每个 job 一个 `<序号>_<job名>.txt`，另有 `<job名>/system.txt` 记录 runner 环境信息。
+解压后结构：`temp/{repo}/logs_{id}/` 内每个 job 一个 `<序号>_<job名>.txt`，另有 `<job名>/system.txt` 记录 runner 环境信息。
 
 ### 5.4 读取日志（用内置工具，无编码问题）
 
 **不要用 PowerShell 打印日志内容**（控制台 GBK 遇到 UTF-8 BOM 会报 `UnicodeEncodeError`）。用内置工具：
 
-- `list_dir(path="tmp/{repo}/logs_{id}")` 定位文件
-- `read(path="tmp/{repo}/logs_{id}/0_xxx.txt")` 读取完整日志
-- `grep_files(pattern="error|failed", path="tmp/{repo}/logs_{id}")` 快速定位失败原因
+- `list_dir(path="temp/{repo}/logs_{id}")` 定位文件
+- `read(path="temp/{repo}/logs_{id}/0_xxx.txt")` 读取完整日志
+- `grep_files(pattern="error|failed", path="temp/{repo}/logs_{id}")` 快速定位失败原因
 
-## 6. 下载 artifact 流程（下载到 tmp + 校验）
+## 6. 下载 artifact 流程（下载到 temp + 校验）
 
 ### 6.1 列出 artifact 拿 id / size / digest
 
@@ -364,11 +364,11 @@ mcp_github-actions_actions_get(owner, repo, method="download_workflow_run_artifa
 // 返回 download_url（Azure Blob 带签名，匿名可下，有时效，尽快下载）
 ```
 
-### 6.3 下载到 `tmp/{repo}/artifact_{name}.zip`
+### 6.3 下载到 `temp/{repo}/artifact_{name}.zip`
 
 ```powershell
 cd "E:\ProgramData\Pycharm\py38deps"
-curl.exe -sL --proxy http://127.0.0.1:7890 -o "tmp\msgspec\artifact_artifact-sdist.zip" "<download_url>"
+curl.exe -sL --proxy http://127.0.0.1:7890 -o "temp\msgspec\artifact_artifact-sdist.zip" "<download_url>"
 ```
 
 ### 6.4 校验（必须）并解压（先校验，通过后再解压）
@@ -379,7 +379,7 @@ curl.exe -sL --proxy http://127.0.0.1:7890 -o "tmp\msgspec\artifact_artifact-sdi
 # 第一步：校验（大小、sha256、zip 完整性）
 @'
 import hashlib, zipfile, os
-path = r"tmp\msgspec\artifact_artifact-sdist.zip"
+path = r"temp\msgspec\artifact_artifact-sdist.zip"
 expected_size = 323824                 # size_in_bytes
 expected_sha = "261e5e82..."           # digest 去掉 "sha256:" 前缀
 size = os.path.getsize(path)
@@ -394,8 +394,8 @@ print("OK:", size, sha)
 # 第二步：校验通过后再解压到同名文件夹，以msgspec为例
 @'
 import zipfile
-z = zipfile.ZipFile(r"tmp\msgspec\artifact_artifact-sdist.zip")
-z.extractall(r"tmp\msgspec\artifact_artifact-sdist")
+z = zipfile.ZipFile(r"temp\msgspec\artifact_artifact-sdist.zip")
+z.extractall(r"temp\msgspec\artifact_artifact-sdist")
 print("extracted")
 '@ | & "E:\ProgramData\Pycharm\py38deps\envs\cp38\python.exe"
 ```
