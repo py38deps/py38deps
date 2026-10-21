@@ -123,12 +123,42 @@ def _column_sort_key(column):
     return (family, Version(f"{digits[0]}.{digits[1:]}"), free_threaded)
 
 
+def _platform_sort_key(platform):
+    """Split a platform tag into comparable text/number tokens.
+
+    Numbers are emitted as (0, int) and text as (1, str), so macOS 10.9
+    sorts before 10.13 and musllinux 1.2 before 1.10 without any per-family
+    version table.
+    """
+    tokens = []
+    text = []
+    number = []
+    for char in platform:
+        if char.isdigit():
+            if text:
+                tokens.append((1, "".join(text)))
+                text = []
+            number.append(char)
+        else:
+            if number:
+                tokens.append((0, int("".join(number))))
+                number = []
+            text.append(char)
+    if number:
+        tokens.append((0, int("".join(number))))
+    if text:
+        tokens.append((1, "".join(text)))
+    return tuple(tokens)
+
+
 def _row_sort_key(row):
     display = ".".join(row)
-    for family, rank in FLAT_FAMILY_ORDER.items():
+    rank = FLAT_FAMILY_ORDER["other"]
+    for family, family_rank in FLAT_FAMILY_ORDER.items():
         if display.startswith(family):
-            return (rank, display)
-    return (FLAT_FAMILY_ORDER["other"], display)
+            rank = family_rank
+            break
+    return (rank, _platform_sort_key(row[0]), display)
 
 
 def _analyze_version(records):
