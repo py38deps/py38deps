@@ -5,3 +5,6 @@ __pycache__/
 
 # Scratch directories (see AGENTS.md "临时文件要求")
 /temp/
+
+# Local build artifacts; published wheels live on GitHub releases
+/wheel/
