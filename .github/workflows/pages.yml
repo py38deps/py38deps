@@ -18,6 +18,7 @@ on:
       - "pypisite/tags.py"
       - "pypisite/fetch.py"
       - "pypisite/build.py"
+      - "pypisite/build_flat.py"
       - "pypisite/common.py"
 
 permissions:

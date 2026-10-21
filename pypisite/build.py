@@ -6,7 +6,7 @@ writes pypisite/_site/ - nothing but HTML:
     index.html                 landing page, carries the tree digest
     simple/index.html          PEP 503 root index
     simple/<name>/index.html   one page per project, links to the release assets
-    flat/index.html            every wheel on one page, for --find-links
+    flat/index.html            one section per dependency/version, for --find-links
     .nojekyll
 
 Every anchor points at the wheel's own GitHub release download URL and carries
@@ -43,6 +43,7 @@ from pathlib import Path
 
 from packaging.utils import canonicalize_name, parse_wheel_filename
 
+from build_flat import FlatPageBuilder
 from common import (
     LIVE_URL,
     REPO,
@@ -184,8 +185,10 @@ class SiteBuilder:
     def write_site(self, accepted):
         """Write the index pages; returns (project names, wheel count, tree digest)."""
         per_project = defaultdict(list)
-        for entry in accepted.values():
-            per_project[entry["records"][0]["project"]].extend(entry["records"])
+        project_versions = defaultdict(list)
+        for (project, version), data in accepted.items():
+            per_project[project].extend(data["records"])
+            project_versions[project].append((version, data["tag"], data["records"]))
 
         # Rebuild from scratch: a project that is no longer indexed must not keep
         # a stale page around (pip would happily install from it).
@@ -205,7 +208,6 @@ class SiteBuilder:
             ),
         )
 
-        flat_anchors = []
         for name in names:
             records = sorted(per_project[name], key=lambda record: record["filename"])
             (simple / name).mkdir(parents=True, exist_ok=True)
@@ -218,8 +220,10 @@ class SiteBuilder:
                 for record in records
             ]
             write_text(simple / name / "index.html", render_page(f"Links for {name}", anchors))
-            flat_anchors.extend(anchors)
-        write_text(self.out_dir / "flat" / "index.html", render_page("py38deps wheels", flat_anchors))
+        write_text(
+            self.out_dir / "flat" / "index.html",
+            FlatPageBuilder(project_versions, self.repo, LIVE_URL + "flat/").build(),
+        )
 
         wheels = sum(len(v) for v in per_project.values())
         # The digest covers every file plus the landing page with an empty digest,
