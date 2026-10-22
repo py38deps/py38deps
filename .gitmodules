@@ -73,3 +73,9 @@
 [submodule "repo/pyyaml"]
 	path = repo/pyyaml
 	url = git@github.com:py38deps/pyyaml.git
+[submodule "repo/propcache"]
+	path = repo/propcache
+	url = git@github.com:py38deps/propcache.git
+[submodule "repo/multidict"]
+	path = repo/multidict
+	url = git@github.com:py38deps/multidict.git
