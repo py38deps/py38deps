@@ -71,3 +71,4 @@ Every link points straight at the wheel in its GitHub release and carries the re
 | watchfiles        | [samuelcolvin/watchfiles](https://github.com/samuelcolvin/watchfiles) | [py38deps/watchfiles](https://github.com/py38deps/watchfiles) | 1.3.0          | cp38~cp315      |        |
 | PyYAML            | [yaml/pyyaml](https://github.com/yaml/pyyaml) | [py38deps/pyyaml](https://github.com/py38deps/pyyaml) | 6.0.3          | cp38~cp14       |        |
 | propcache         | [aio-libs/propcache](https://github.com/aio-libs/propcache) | [py38deps/propcache](https://github.com/py38deps/propcache) | 0.5.4          | cp38~cp15       |        |
+| multidict         | [aio-libs/multidict](https://github.com/aio-libs/multidict) | [py38deps/multidict](https://github.com/py38deps/multidict) | 7.1.0          | cp38~cp314t     | [LIMITS](doc/LIMITS-multidict.md) |
