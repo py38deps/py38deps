@@ -79,3 +79,6 @@
 [submodule "repo/multidict"]
 	path = repo/multidict
 	url = git@github.com:py38deps/multidict.git
+[submodule "repo/yarl"]
+	path = repo/yarl
+	url = git@github.com:py38deps/yarl.git
