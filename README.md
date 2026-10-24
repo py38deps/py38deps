@@ -44,17 +44,17 @@ Every link points straight at the wheel in its GitHub release and carries the re
 
 | Dep Name          | Official Repo                                                | Our Repo                                                     | Latest Version | Backport Low To | LIMITS |
 | ----------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | -------------- |-----------------| ------ |
-| msgspec           | [msgspec/msgspec](https://github.com/msgspec/msgspec)        | [py38deps/msgspec](https://github.com/py38deps/msgspec)      | 0.22.0         | cp38~cp15       | [LIMITS](doc/LIMITS-msgspec.md) |
-| zstandard         | [indygreg/python-zstandard](https://github.com/indygreg/python-zstandard) | [py38deps/python-zstandard](https://github.com/py38deps/python-zstandard) | 0.25.0         | cp38~cp14       |        |
+| msgspec           | [msgspec/msgspec](https://github.com/msgspec/msgspec)        | [py38deps/msgspec](https://github.com/py38deps/msgspec)      | 0.22.0         | cp38~cp315t     | [LIMITS](doc/LIMITS-msgspec.md) |
+| zstandard         | [indygreg/python-zstandard](https://github.com/indygreg/python-zstandard) | [py38deps/python-zstandard](https://github.com/py38deps/python-zstandard) | 0.25.0         | cp38~cp314      |        |
 | hyperframe        | [python-hyper/hyperframe](https://github.com/python-hyper/hyperframe) | [py38deps/hyperframe](https://github.com/py38deps/hyperframe) | 6.1.0          | cp38+           |        |
 | hpack             | [python-hyper/hpack](https://github.com/python-hyper/hpack) | [py38deps/hpack](https://github.com/py38deps/hpack) | 4.2.0          | cp38+           |        |
 | h2                | [python-hyper/h2](https://github.com/python-hyper/h2) | [py38deps/h2](https://github.com/py38deps/h2) | 4.4.1          | cp38+           |        |
 | wsproto           | [python-hyper/wsproto](https://github.com/python-hyper/wsproto) | [py38deps/wsproto](https://github.com/py38deps/wsproto) | 1.3.2          | cp38+           |        |
-| cffi              | [python-cffi/cffi](https://github.com/python-cffi/cffi) | [py38deps/cffi](https://github.com/py38deps/cffi) | 2.1.1          | cp38~cp15       |        |
+| cffi              | [python-cffi/cffi](https://github.com/python-cffi/cffi) | [py38deps/cffi](https://github.com/py38deps/cffi) | 2.1.1          | cp38~cp315t     |        |
 | attrs             | [python-attrs/attrs](https://github.com/python-attrs/attrs) | [py38deps/attrs](https://github.com/py38deps/attrs) | 26.1.0         | cp38+           |        |
 | idna              | [kjd/idna](https://github.com/kjd/idna) | [py38deps/idna](https://github.com/py38deps/idna) | 3.20           | cp38+           |        |
 | trio              | [python-trio/trio](https://github.com/python-trio/trio) | [py38deps/trio](https://github.com/py38deps/trio) | 0.34.0         | cp38+           |        |
-| PyAV              | [PyAV-Org/PyAV](https://github.com/PyAV-Org/PyAV) | [py38deps/PyAV](https://github.com/py38deps/PyAV) | 18.1.0         | cp38~cp14       |        |
+| PyAV              | [PyAV-Org/PyAV](https://github.com/PyAV-Org/PyAV) | [py38deps/PyAV](https://github.com/py38deps/PyAV) | 18.1.0         | cp38~cp314t     |        |
 | hypercorn         | [pgjones/hypercorn](https://github.com/pgjones/hypercorn) | [py38deps/hypercorn](https://github.com/py38deps/hypercorn) | 0.18.0         | cp38+           |        |
 | anyio             | [agronholm/anyio](https://github.com/agronholm/anyio) | [py38deps/anyio](https://github.com/py38deps/anyio) | 4.15.1         | cp38+           | [LIMITS](doc/LIMITS-anyio.md) |
 | python-multipart  | [Kludex/python-multipart](https://github.com/Kludex/python-multipart) | [py38deps/python-multipart](https://github.com/py38deps/python-multipart) | 0.0.32         | cp38+           |        |
@@ -65,11 +65,11 @@ Every link points straight at the wheel in its GitHub release and carries the re
 | markdown-it-py    | [executablebooks/markdown-it-py](https://github.com/executablebooks/markdown-it-py) | [py38deps/markdown-it-py](https://github.com/py38deps/markdown-it-py) | 4.2.0          | cp38+           |        |
 | Pygments          | [pygments/pygments](https://github.com/pygments/pygments) | [py38deps/pygments](https://github.com/py38deps/pygments) | 2.21.0         | cp38+           |        |
 | rich              | [Textualize/rich](https://github.com/Textualize/rich) | [py38deps/rich](https://github.com/py38deps/rich) | 15.0.0         | cp38+           |        |
-| MarkupSafe        | [pallets/markupsafe](https://github.com/pallets/markupsafe) | [py38deps/markupsafe](https://github.com/py38deps/markupsafe) | 3.0.4          | cp38~cp315      |        |
+| MarkupSafe        | [pallets/markupsafe](https://github.com/pallets/markupsafe) | [py38deps/markupsafe](https://github.com/py38deps/markupsafe) | 3.0.4          | cp38~cp315t     |        |
 | typing_extensions | [python/typing_extensions](https://github.com/python/typing_extensions) | [py38deps/typing_extensions](https://github.com/py38deps/typing_extensions) | 4.16.0         | cp38+           | [LIMITS](doc/LIMITS-typing_extensions.md) |
 | starlette         | [Kludex/starlette](https://github.com/Kludex/starlette) | [py38deps/starlette](https://github.com/py38deps/starlette) | 1.9.0          | cp38+           | [LIMITS](doc/LIMITS-starlette.md) |
-| watchfiles        | [samuelcolvin/watchfiles](https://github.com/samuelcolvin/watchfiles) | [py38deps/watchfiles](https://github.com/py38deps/watchfiles) | 1.3.0          | cp38~cp315      |        |
-| PyYAML            | [yaml/pyyaml](https://github.com/yaml/pyyaml) | [py38deps/pyyaml](https://github.com/py38deps/pyyaml) | 6.0.3          | cp38~cp14       |        |
-| propcache         | [aio-libs/propcache](https://github.com/aio-libs/propcache) | [py38deps/propcache](https://github.com/py38deps/propcache) | 0.5.4          | cp38~cp15       |        |
+| watchfiles        | [samuelcolvin/watchfiles](https://github.com/samuelcolvin/watchfiles) | [py38deps/watchfiles](https://github.com/py38deps/watchfiles) | 1.3.0          | cp38~cp314t     |        |
+| PyYAML            | [yaml/pyyaml](https://github.com/yaml/pyyaml) | [py38deps/pyyaml](https://github.com/py38deps/pyyaml) | 6.0.3          | cp38~cp314t     |        |
+| propcache         | [aio-libs/propcache](https://github.com/aio-libs/propcache) | [py38deps/propcache](https://github.com/py38deps/propcache) | 0.5.4          | cp38~cp315t     |        |
 | multidict         | [aio-libs/multidict](https://github.com/aio-libs/multidict) | [py38deps/multidict](https://github.com/py38deps/multidict) | 7.1.0          | cp38~cp314t     | [LIMITS](doc/LIMITS-multidict.md) |
-| yarl              | [aio-libs/yarl](https://github.com/aio-libs/yarl) | [py38deps/yarl](https://github.com/py38deps/yarl) | 1.25.1         | cp38+           |        |
+| yarl              | [aio-libs/yarl](https://github.com/aio-libs/yarl) | [py38deps/yarl](https://github.com/py38deps/yarl) | 1.25.1         | cp38~cp315t     |        |
