@@ -72,8 +72,6 @@ and of non-macOS platforms. `CERT_OPTIONAL` keeps the upstream allow-list behavi
 
 ## 4. Other runtime differences
 
-- **`requires-python`**: `>= 3.8` (upstream: `>= 3.10`), so the backport installs on
-  3.8/3.9 instead of failing at resolution time.
 - **Import gate removed**: upstream `src/truststore/__init__.py` raises
   `ImportError` below 3.10; the backport removed that gate, so on 3.8/3.9 the module
   imports normally and uses the leaf-only verification path (section 1) instead.
@@ -87,5 +85,4 @@ and of non-macOS platforms. `CERT_OPTIONAL` keeps the upstream allow-list behavi
 | Peer chain source | `get_unverified_chain()` (full server chain) | `getpeercert(binary_form=True)` (leaf only) |
 | Chain building | OS verifies the server-sent chain | OS builds the chain itself (Windows AIA / macOS network fetch on 10.9+) |
 | macOS CERT_NONE | tolerates `errSecNotTrusted` / `errSecCertificateExpired` only | tolerates any SecTrust failure |
-| `requires-python` | `>= 3.10` | `>= 3.8` |
 | Import on 3.8/3.9 | `ImportError` gate in `__init__.py` | imports normally, leaf fallback used |

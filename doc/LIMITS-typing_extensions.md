@@ -131,8 +131,6 @@ implementations are not interchangeable:
 
 ## 5. Other runtime differences
 
-- **`requires-python`**: `>= 3.8` (upstream: `>= 3.9`), so the backport installs on 3.8
-  instead of failing at resolution time.
 - **`get_type_hints()` on 3.8** cannot pass `include_extras=` to the stdlib (it was
   added in 3.9), so `typing_extensions.get_type_hints()` calls
   `typing.get_type_hints()` without it on 3.8 and applies its own `_strip_extras()`
@@ -151,4 +149,3 @@ implementations are not interchangeable:
 | `evaluate_forward_ref()` module lookup | via `ForwardRef(module=...)` | unavailable (globals/locals/owner/type_params still work) |
 | `TD[int]` / `Group[int]` | `types.GenericAlias` (PEP 585) | same semantics, object is `typing._GenericAlias` |
 | `typing.NamedTuple` | function (3.9+) | `NamedTupleMeta` class |
-| `requires-python` | `>= 3.9` | `>= 3.8` |
