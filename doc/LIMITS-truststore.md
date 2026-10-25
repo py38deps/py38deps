@@ -70,7 +70,7 @@ semantically disables certificate verification, so accepting the connection matc
 the behavior of 3.10+ (where the full-chain path happens to hit a tolerated code)
 and of non-macOS platforms. `CERT_OPTIONAL` keeps the upstream allow-list behavior.
 
-## 4. Summary of backport-specific runtime differences vs upstream v0.10.4
+## 4. Summary of backport-specific runtime differences vs upstream v0.10.5
 
 | Area | Upstream (>= 3.10) | Backport on 3.8/3.9 |
 | --- | --- | --- |
