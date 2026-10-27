@@ -2,9 +2,9 @@
 
 This document records behavioral differences between the multidict backport
 (`repo/multidict`) and upstream (`aio-libs/multidict`) **at runtime** on old
-Python versions. The backport targets Python 3.8+ while upstream 7.x requires
-Python 3.10+, so every difference below is specific to our fork. Test-suite and
-type-hint differences are out of scope.
+Python versions. The backport targets Python 3.8+ while upstream 7.2 and later
+requires Python 3.11+, so every difference below is specific to our fork.
+Test-suite and type-hint differences are out of scope.
 
 ## 1. The C extension is unavailable in Python 3.8 subinterpreters (core limitation)
 
@@ -90,35 +90,38 @@ The pure-Python classes are mutable on every version, which is upstream behavior
 
 ## 5. Performance notes
 
-The compatibility layer does not change the hot paths. Measured with the C
-extension on a 10-key multidict, `get`, `contains`, `getall`, `setitem`,
-`update`, `copy`, iteration and proxy lookups on 3.8 are within roughly 10% of
-the same 7.1.0 code on 3.9/3.10; `CIMultiDict` lookups are within 10%.
+The compatibility layer does not change the hot paths. Measured on the 7.2.1
+backport with the C extension (best of five `timeit` runs, 10-key multidicts
+unless noted), Python 3.8 is on par with Python 3.9 for `get`, `contains`,
+`getall`, `setitem`, `update`, `copy`, iteration and proxy lookups: within
+about 6%, in either direction.
 
-Two interpreter-level effects remain on 3.8:
+Three interpreter-level effects remain on 3.8:
 
-- **`istr(...)` construction is ~1.3x slower than on 3.9+.** CPython 3.9
-  started honouring a type object's `tp_vectorcall`, which the extension
-  installs (`istr_tp_vectorcall`) for the one-argument form; on 3.8 the call
-  goes through `type_call()` + `tp_new()`. The backport adds an exact-str
-  fast path to `istr_new()` (the same `_istr_from_exact_str()` allocation the
-  vectorcall path uses); without it the gap would be ~1.8x.
+- **`istr(...)` construction is ~1.3x slower than on 3.9+** (161 ns vs 125 ns
+  per call). CPython 3.9 started honouring a type object's `tp_vectorcall`,
+  which the extension installs (`istr_tp_vectorcall`) for the one-argument
+  form; on 3.8 the call goes through `type_call()` + `tp_new()`. The backport
+  adds an exact-str fast path to `istr_new()` (the same
+  `_istr_from_exact_str()` allocation the vectorcall path uses); without it
+  the gap would be ~1.8x.
+- **A `CIMultiDict` lookup of a non-ASCII key is ~20% slower on 3.8** (172 ns
+  vs 143 ns). Folding the key needs `str.lower()` on a `str` subclass, which
+  the extension reaches through `PyObject_CallMethodNoArgs`; 3.8 only has the
+  varargs `PyObject_CallMethodObjArgs()`, so the shim in `py38_compat.h` costs
+  about 7 ns per call. ASCII keys take the `str_cmp.h` fast path and are
+  within 5%.
 - **Subinterpreters use the pure-Python implementation** (section 1), which is
   slower than the C extension.
 
-The `PyObject_CallMethodNoArgs`/`OneArg` shims cost about 7 ns per call versus
-3.9's native helpers. They are used only when an `istr` is created and when a
-`CIMultiDict` key needs a non-ASCII `lower()`, so the cost is below the noise
-of those operations' own work.
-
-For reference, on Python 3.8 the 7.1.0 backport is substantially faster than
-multidict 6.1.0: `update()` of 10 keys is ~2.7x faster, `copy()` ~9.7x, a
-`CIMultiDict` ASCII key lookup ~1.6x, and `istr()` ~1.4x; the remaining
-operations are on par.
+For reference, on Python 3.8 the 7.1.0 backport measured substantially faster
+than multidict 6.1.0: `update()` of 10 keys ~2.7x, `copy()` ~9.7x, a
+`CIMultiDict` ASCII key lookup ~1.6x, and `istr()` ~1.4x. Those figures were
+taken before the 7.2 C rewrite and were not re-measured against 6.1.0.
 
 ## Summary
 
-| Area | 3.8 | 3.9 | 3.10+ (upstream) |
+| Area | 3.8 | 3.9 | 3.10+ |
 | --- | --- | --- | --- |
 | C extension in subinterpreters | pure-Python fallback | available | available |
 | `MultiDict[int]` | the class itself | `types.GenericAlias` | `types.GenericAlias` |
