@@ -73,3 +73,15 @@ Every link points straight at the wheel in its GitHub release and carries the re
 | propcache         | [aio-libs/propcache](https://github.com/aio-libs/propcache) | [py38deps/propcache](https://github.com/py38deps/propcache) | 0.5.4          | cp38~cp315t     |        |
 | multidict         | [aio-libs/multidict](https://github.com/aio-libs/multidict) | [py38deps/multidict](https://github.com/py38deps/multidict) | 7.2.1          | cp38~cp314t     | [LIMITS](doc/LIMITS-multidict.md) |
 | yarl              | [aio-libs/yarl](https://github.com/aio-libs/yarl) | [py38deps/yarl](https://github.com/py38deps/yarl) | 1.25.1         | cp38~cp315t     |        |
+
+## Upstream tracking
+
+Every row above is compared with the newest stable tag of its official repository once a day
+(`.github/workflows/upstream-tracker.yml`, also re-run when a release or a tag is published).
+A dependency that is behind gets a single issue labelled `backport`: it is rewritten when upstream
+moves on, and closed automatically as soon as a release here covers the newest upstream version.
+The same comparison runs locally with:
+
+```bash
+python -m devtool.track_backports --dry-run
+```

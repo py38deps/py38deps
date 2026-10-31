@@ -1,0 +1,52 @@
+name: upstream-tracker
+
+# One tracking issue per backported dependency, kept in sync with upstream:
+#   * every day           - open/update "upstream released X" for what we miss
+#   * release published   - close the issue as soon as the backport is out
+#   * tag push            - same, for releases published without a release event
+#   * push to master      - follow README/workflow/script changes immediately
+on:
+  schedule:
+    - cron: "43 2 * * *"   # daily; GitHub may start scheduled runs a few minutes late
+  release:
+    types: [published]
+  push:
+    branches: ["master"]
+    tags: ["*"]            # path filters are not evaluated for tags
+    paths:
+      - ".github/workflows/upstream-tracker.yml"
+      - "devtool/track_backports.py"
+      - "devtool/const.py"
+      - "README.md"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "report the plan only, never create/update/close issues"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: upstream-tracker
+  cancel-in-progress: false
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0             # the release tags are the published versions
+          persist-credentials: false # upstream lookups run against other repositories
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install packaging
+      - name: Compare with upstream and sync the issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m devtool.track_backports ${{ inputs.dry_run && '--dry-run' || '' }}
