@@ -3,7 +3,7 @@
 This document records behavioral differences between the anyio backport
 (repo/anyio) and upstream (agronholm/anyio) **at runtime** on old Python versions
 (3.8 and 3.9, with some notes on the 3.10/3.11 boundaries). The backport targets
-Python 3.8+ while upstream 4.15.1 requires 3.10+, so every difference below is
+Python 3.8+ while upstream 4.16.0 requires 3.10+, so every difference below is
 specific to our fork. Test-suite and type-hint differences are out of scope.
 
 ## 1. Cancellation reasons cannot be delivered inside tasks on Python 3.8
