@@ -57,7 +57,7 @@ Every link points straight at the wheel in its GitHub release and carries the re
 | PyAV              | [PyAV-Org/PyAV](https://github.com/PyAV-Org/PyAV) | [py38deps/PyAV](https://github.com/py38deps/PyAV) | 18.1.0         | cp38~cp314t     |        |
 | hypercorn         | [pgjones/hypercorn](https://github.com/pgjones/hypercorn) | [py38deps/hypercorn](https://github.com/py38deps/hypercorn) | 0.18.0         | cp38+           |        |
 | anyio             | [agronholm/anyio](https://github.com/agronholm/anyio) | [py38deps/anyio](https://github.com/py38deps/anyio) | 4.16.0         | cp38+           | [LIMITS](doc/LIMITS-anyio.md) |
-| python-multipart  | [Kludex/python-multipart](https://github.com/Kludex/python-multipart) | [py38deps/python-multipart](https://github.com/py38deps/python-multipart) | 0.0.32         | cp38+           |        |
+| python-multipart  | [Kludex/python-multipart](https://github.com/Kludex/python-multipart) | [py38deps/python-multipart](https://github.com/py38deps/python-multipart) | 0.0.33         | cp38+           |        |
 | truststore        | [sethmlarson/truststore](https://github.com/sethmlarson/truststore) | [py38deps/truststore](https://github.com/py38deps/truststore) | 0.10.5         | cp38+           | [LIMITS](doc/LIMITS-truststore.md) |
 | PyJWT             | [jpadilla/pyjwt](https://github.com/jpadilla/pyjwt) | [py38deps/pyjwt](https://github.com/py38deps/pyjwt) | 2.15.1         | cp38+           |        |
 | httpx2            | [pydantic/httpx2](https://github.com/pydantic/httpx2) | [py38deps/httpx2](https://github.com/py38deps/httpx2) | 2.16.0         | cp38+           | [LIMITS](doc/LIMITS-httpx2.md) |
