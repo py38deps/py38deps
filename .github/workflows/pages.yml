@@ -87,3 +87,10 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+        env:
+          # deploy-pages sends GITHUB_SHA as the Pages "build version", and Pages
+          # keeps serving the artifact it already stored for a version it has
+          # published before. A release whose tag points at a commit that the
+          # daily run already deployed therefore publishes nothing while the run
+          # still reports success. Give every deployment its own version.
+          GITHUB_SHA: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
