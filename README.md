@@ -62,7 +62,7 @@ Every link points straight at the wheel in its GitHub release and carries the re
 | PyJWT             | [jpadilla/pyjwt](https://github.com/jpadilla/pyjwt) | [py38deps/pyjwt](https://github.com/py38deps/pyjwt) | 2.15.1         | cp38+           |        |
 | httpx2            | [pydantic/httpx2](https://github.com/pydantic/httpx2) | [py38deps/httpx2](https://github.com/py38deps/httpx2) | 2.16.0         | cp38+           | [LIMITS](doc/LIMITS-httpx2.md) |
 | httpcore2         | [pydantic/httpx2](https://github.com/pydantic/httpx2) | [py38deps/httpx2](https://github.com/py38deps/httpx2) | 2.16.0         | cp38+           | [LIMITS](doc/LIMITS-httpx2.md) |
-| markdown-it-py    | [executablebooks/markdown-it-py](https://github.com/executablebooks/markdown-it-py) | [py38deps/markdown-it-py](https://github.com/py38deps/markdown-it-py) | 4.2.0          | cp38+           |        |
+| markdown-it-py    | [executablebooks/markdown-it-py](https://github.com/executablebooks/markdown-it-py) | [py38deps/markdown-it-py](https://github.com/py38deps/markdown-it-py) | 4.3.0          | cp38+           |        |
 | Pygments          | [pygments/pygments](https://github.com/pygments/pygments) | [py38deps/pygments](https://github.com/py38deps/pygments) | 2.21.0         | cp38+           |        |
 | rich              | [Textualize/rich](https://github.com/Textualize/rich) | [py38deps/rich](https://github.com/py38deps/rich) | 15.0.0         | cp38+           |        |
 | MarkupSafe        | [pallets/markupsafe](https://github.com/pallets/markupsafe) | [py38deps/markupsafe](https://github.com/py38deps/markupsafe) | 3.0.4          | cp38~cp315t     |        |
