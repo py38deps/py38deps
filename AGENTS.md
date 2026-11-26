@@ -2,14 +2,6 @@
 
 随着低版本 python 逐渐 end of life，许多 python 依赖逐渐提高了最低版本要求，`py38deps` 将他们反向移植到低版本 python 上，尽量支持到 python 3.8。
 
-## 文件结构
-
-`README.md` 表格中记录了已经移植完成的依赖
-
-`repo/{DEP_NAME}` 是各个依赖的 git 仓库。remote origin 指向我们的二次开发仓库，remote upstream 指向官方仓库
-
-`wheel/{DEP_NAME}/{DEP_VERSION}` 目录存放编译好的 wheel 文件
-
 ## 对话要求
 
 - 在对话回复中使用中文
@@ -23,12 +15,238 @@
 优先使用 codewhale 内置工具而不是调用外部命令行。如果遇到权限问题再去尝试使用命令行访问。如果在任务中多次需要访问一个外部路径，提示用户可以执行 `/trust add {PATH}` 添加信任，这样下一次可以使用内置工具进行访问。
 
 - **代码搜索：** 使用内置工具 `grep_files`（正则表达式搜索文件内容）。不要回退到使用命令行 `Select-String` / `rg` / `grep` 进行全仓库搜索。内置工具是使用 rust 编写的，比命令行更快。内置工具会过滤类似 `node_modules`，`build` 等目录，避免搜索无关内容消耗大量时间。
-- **文件搜索：** 使用内置工具 `file_search` （模糊文件名搜索）， `list_dir` （列举路径下的文件和文件夹），不要使用命令行  `Get-Children` / `find` / `dir`。
+- **文件搜索：** 使用内置工具 `file_search` （模糊文件名搜索）， `list_dir` （列举路径下的文件和文件夹），不要使用命令行  `Get-Children` / `find` / `dir` / `ls`。
 - **读取文件：** 使用 `read` 读取单个文件；使用 `grep_files` 搜索多个文件，禁止使用 `Get-Content` 读取项目内的文件
 - **编辑文件：** 使用 `edit` / `fim_edit` / `apply_patch` 等工具编辑文件，不要编写临时脚本去编辑文件。因为内置工具有丰富的模糊匹配与约束，自行编写替换代码很容易遇到 文件编码问题、换行符匹配问题、行号/内容匹配问题、特殊符号转义问题。
 - **批量编辑文件：** 仍然使用内置工具进行编辑。不要怕多次调用工具进行单次编辑很麻烦，手写替换脚本遇到编码问题转义问题反复修改临时脚本更麻烦。
 - **`bash` / powershell 是备用方案，并非默认方案。** 仅当没有内置工具能够完成任务时，或者需要访问超出信任路径时，才使用命令行完成。
 - **禁止使用powershell命令读取写入项目内文件：** 禁止使用 `Get-Content` 读取项目内的文件，因为 powershell 默认读出来是系统编码的文件，而非 UTF-8。禁止使用 `Out-File` / `Write-Output` 写入项目内文件，因为会默认写入 utf8-bom 而非 utf-8。总是使用内置工具读写文件。
+
+### 2.1 `list_dir` —— 列出一个目录的直接子项
+
+参数只有一个 `path`（缺省 `.`），接受工作区相对路径、绝对路径或 `~/`。
+单次最多返回 500 条，超出会带截断元数据；不做递归。
+
+```text
+list_dir { path: "crates/engine/src/tools" }
+```
+
+等价 bash：
+
+```bash
+ls -la crates/engine/src/tools
+```
+
+等价 PowerShell：
+
+```powershell
+Get-ChildItem crates/engine/src/tools
+```
+
+只是想知道某一层有什么时用它。要递归、要按名字筛选，用 2.2；要看目录里文件的
+内容，用 2.4。`ls` / `dir` / `gci` / `Get-ChildItem` 四种写法已被
+`permissions.toml` 拒绝。
+
+### 2.2 `file_search` —— 按文件名或路径查找文件
+
+参数：`query`（必填，空格分隔的词需全部命中）、`path`、`limit`（默认 20，上限
+200）、`extensions`、`exclude`。字面命中排在模糊命中之前；默认遵守忽略规则并跳过
+构建/依赖目录。返回路径**相对于你传入的 `path`**，不是相对于工作区。
+
+```text
+file_search { query: "atomic", extensions: ["py"], path: "alasio", limit: 20 }
+```
+
+等价 bash：
+
+```bash
+find alasio -type f -name '*atomic*' | head -20
+```
+
+等价 PowerShell：
+
+```powershell
+Get-ChildItem alasio -Recurse -File -Filter '*atomic*' |
+  Where-Object Extension -eq '.py' | Select-Object -First 20 -ExpandProperty FullName
+```
+
+`find` 与 `Get-ChildItem` 已被拒绝；`file_search` 是它们的替代。
+
+### 2.3 `grep_files` —— 按内容搜索文件
+
+参数：`pattern`（必填，正则）、`path`（目录或单个文件）、`include`、`exclude`、
+`context_lines`（默认 2）、`case_insensitive`、`max_results`（默认 100）。
+纯 Rust 实现，跳过常见的非代码目录；文件按行流式读取。**没有 `output_mode`**——
+那是 grep 习惯，传了会报参数错误。要控制体量用 `max_results`。工作区外的结果以
+**绝对路径**回显；工作区内是相对路径。
+
+```text
+grep_files {
+  pattern: "fn denied_prefix_matches|Command blocked by denied prefix rule",
+  path: "crates/execpolicy",
+  include: ["*.rs"],
+  context_lines: 3,
+  max_results: 40
+}
+```
+
+等价 bash：
+
+```bash
+grep -rn -E 'fn denied_prefix_matches|Command blocked by denied prefix rule' \
+  crates/execpolicy --include='*.rs' -C 3
+```
+
+等价 PowerShell：
+
+```powershell
+Get-ChildItem crates/execpolicy -Recurse -Filter *.rs |
+  Select-String -Pattern 'fn denied_prefix_matches|Command blocked by denied prefix rule' -Context 3,3
+```
+
+`grep` / `rg` / `Select-String` 已被拒绝；`grep_files` 是替代。
+
+### 2.4 `read` —— 读取文件，支持按行分页
+
+参数：`path`、`offset`（起始行，1 起）、`limit`（行数）、`max_bytes`（本次输出
+预算，默认 100,000，上限 500,000）。返回自带字节数、总行数、是否截断；被预算截断
+时会给出下一次的准确 `offset`。图片（PNG/JPEG/GIF/WebP）直接作为图像内容返回。
+
+```text
+read { path: "crates/execpolicy/src/lib.rs", offset: 880, limit: 60 }
+```
+
+等价 bash：
+
+```bash
+sed -n '880,939p' crates/execpolicy/src/lib.rs
+```
+
+等价 PowerShell：
+
+```powershell
+Get-Content crates/execpolicy/src/lib.rs | Select-Object -Skip 879 -First 60
+```
+
+`offset` / `limit` 是它相对 `Get-Content | Select-Object -Skip -First` 的关键优势：
+不需要手工推算下标，截断时也不用重新数行。`Get-Content` / `cat` / `head` / `tail` /
+`sed` 已被拒绝。
+
+### 2.5 `write` —— 创建文件或整体覆盖
+
+参数：`path`、`content`（必填）、`expected_hash`、`line_ending`（`preserve` 默认 /
+`lf` / `crlf`）。父目录自动创建；`expected_hash` 取自之前 `read` 返回的
+`content_hash`，文件在此期间变化则拒绝覆盖。
+
+```text
+write {
+  path: "docs/notes.md",
+  content: "# 说明\n\n这里是一段占位文本。\n"
+}
+```
+
+等价 bash：
+
+```bash
+cat > docs/notes.md <<'EOF'
+# 说明
+
+这里是一段占位文本。
+EOF
+```
+
+等价 PowerShell：
+
+```powershell
+Set-Content -Path docs/notes.md -Value "# 说明`n`n这里是一段占位文本。"
+```
+
+写整个文件用 `write`；只改其中一段用 2.6 的 `edit`——后者返回紧凑 diff，不占整份
+文件。`Set-Content` / `Out-File` / `Add-Content` 已被拒绝；注意重定向（`> file`）
+不在规则覆盖范围（见 1.4）。
+
+### 2.6 `edit` —— 精确替换一处或多处文本
+
+参数：`path`、`edits`（数组，每项只有 `oldText` 和 `newText`）。每个 `oldText`
+必须在原文件中唯一且互不重叠；相邻或重叠的改动要合并成一条。
+**没有 `newText2`、`comment` 之类的字段**；多出来的键会被拒绝。
+
+```text
+edit {
+  path: "crates/config/src/permissions.rs",
+  edits: [
+    { oldText: "let mut denied = Vec::new();", newText: "let mut denied: Vec<String> = Vec::new();" }
+  ]
+}
+```
+
+等价 bash：
+
+```bash
+sed -i 's/let mut denied = Vec::new();/let mut denied: Vec<String> = Vec::new();/' \
+  crates/config/src/permissions.rs
+```
+
+等价 PowerShell：
+
+```powershell
+$p = 'crates/config/src/permissions.rs'
+(Get-Content $p -Raw) -replace 'let mut denied = Vec::new\(\);', 'let mut denied: Vec<String> = Vec::new();' |
+  Set-Content $p -NoNewline
+```
+
+`sed` / `Get-Content` / `Set-Content` 已被拒绝；`edit` 是替代。
+
+### 2.7 `apply_patch` —— 多处 / 跨文件修改
+
+参数：`patch`（unified diff 文本）或 `replace` / `changes`（整文件替换数组）
+三选一，外加 `fuzz`、`create_if_missing`、`expected_hash`。支持多 hunk、多文件，
+删除（`+++ /dev/null`）与重命名（`rename from/to`）也在其中。
+
+```text
+apply_patch {
+  patch: "*** Begin Patch\n*** Update File: src/lib.rs\n@@\n-old\n+new\n*** End Patch"
+}
+```
+
+等价 bash：
+
+```bash
+git apply changes.patch
+# 或
+patch -p0 < changes.patch
+```
+
+等价 PowerShell：**无原生等价**。
+
+一次改多个文件用它，不要为每个文件各调一次 `edit`。
+
+### 2.8 `Git` —— 仓库状态、差异与历史
+
+- 单个工具加 `action` 参数。只读动作：`status`、`diff`、`log`、`show`、`blame`、
+  `commit_plan`、`merge_tree`、`review_scope`；只有 `fetch` 会联网并动 ref。
+- 公共参数：`path`、`cached`、`unified`、`max_count`、`author`、`since`、`until`、
+  `rev`、`stat`、`start_line`、`max_lines`。
+
+```text
+Git { action: "status", path: "src" }
+Git { action: "diff", path: "src", cached: true }
+Git { action: "log", max_count: 20, path: "crates/engine" }
+Git { action: "show", rev: "HEAD", stat: true }
+Git { action: "blame", path: "src/lib.rs", start_line: 1, max_lines: 50 }
+```
+
+等价 bash / PowerShell（两者相同）：
+
+```bash
+git status --short -- src
+git diff --cached -- src
+git log -20 -- crates/engine
+git show --stat HEAD
+git blame -L 1,50 -- src/lib.rs
+```
+
+- `path` 有两种语义，由它指向的类型决定（`resolve_git_context`）：
 
 ### 不要主动发起对抗性审查
 
@@ -36,69 +254,53 @@
 
 也不要使用 `agent` 工具拉起一个 sub-agent 执行等价任务。
 
-##  测试环境
+## 项目操作
 
-本地有 cp38 ~ cp314 的测试环境，python 运行时提取自 uv 打包好的 portable python
+### 编写计划文档
+
+如果用户要求编写计划文档，那么使用中文将计划写入到 markdown 文件 `doc/{yyyy}-{mm}-{dd}_{title}.md`，比如 `doc/2026-08-13_somethong-matters.md`
+
+历史文档编写即封存，更新文档的时候，不要主动修改历史文档，只修改当前文档。
+
+不要在代码注释中提及历史文档，或者提及其中的章节，注释需要是自描述的。
+
+### 代码提交要求
+
+不主动执行 `git commit` 提交代码，不主动执行 `git push`。
+
+如果用户要求提交，使用 约定式提交（Conventional Commits）编写 commit message，尽量在一行内描述变更，如果修改内容非常复杂才继续补充文本。
+
+提交时仅提交与本次修改有关的修改，不要添加无关修改，不要添加 `doc/` 下的过程文档。
+
+项目已有的 commit message 示例：
 
 ```
-envs/cp38/python.exe
-envs/cp39/python.exe
-envs/cp310/python.exe
-envs/cp311/python.exe
-envs/cp312/python.exe
-envs/cp313/python.exe
-envs/cp313t/python.exe
-envs/cp314/python.exe
-envs/cp314t/python.exe
+Add: time driven TaskQueue refresh
+Fix: thread pool performance dropped when reaching pool limit
+Pref: faster fileinfo building
+Chore: reduce logging in frontend wramup
+Style(frontend): less padding in nav to show more info
+Dep(webapp): shadcn-svelte alert dialog
+Upd: [TW] MAP_PREPARATION assets
+Opt: Faster fleet set by setting fleet 2 and submarine together
 ```
-
-### 环境复用铁律（禁止创建全新环境）
-
-`envs/cp38 ~ envs/cp314` 是项目唯一批准的 python 运行时来源，所有版本已就绪。**任何情况下都不得让工具自动下载或新建 python 环境**，违规会在用户目录累积 GB 级缓存、与 envs 重复占用磁盘（完整事故记录见 `doc/2026-09-02_uv-cache-and-environment-reuse.md`）：
-
-- **不要在 `envs/*` 里安装 uv**（`pip install uv`）：tox 4 检测到 PATH 中的 uv 会自动切换到 uv 模式（pyvenv.cfg 写 `uv = x.y.z` 标记），把下载缓存写入 `%LOCALAPPDATA%\uv\cache`（无自动清理），并在找不到指定版本 python 时自动下载完整 python 到用户目录
-- **禁止裸跑 uv 的 python 管理命令**：`uv venv` / `uv run` / `uv python install` 不带 `--python` 参数时，uv 找不到解释器会静默下载 python-build-standalone（150~250MB/个，下载缓存与安装副本双份占用）
-- **创建 venv / 安装依赖一律显式指向 envs 的 python**：`uv venv --python envs\cp38\python.exe`、`uv pip install --python envs\cp38\python.exe ...`、`python -m venv --python envs\cp38\python.exe ...`
-- 项目必须用 uv 时（如 httpx2 的 `uv sync --frozen`）：只能调用 `temp\uv\uv.exe`（不要往任何 env 里 `pip install uv`），且必须加 `--python` 指向 envs 的解释器
-- **自查信号**：`.tox/*/pyvenv.cfg` 或 venv 的 `pyvenv.cfg` 中 `home` 指向 `C:\Users\...\uv\python`（而非 `envs\cp*`）即违规；用户目录出现 `uv\cache` / `uv\python` 说明有工具自动下载过 python，应提醒用户清理
-
-### 编译工具
-
-编译工具在 `mingw64/bin` 目录下，禁止自行在系统环境中安装编译工具。
 
 ### 运行python程序
 
-使用测试环境中的 python 解释器来执行脚本和运行测试，比如：
+使用 Anaconda 虚拟环境中的 python 解释器来执行脚本和运行测试，比如：
 
 ```bash
 # run a specific file "module/config/gen.py"
 "<path_to_python>" -m module.config.gen
 # run test file "tests/base/test_servertime.py"
-"<path_to_python>" -m pytest tests/base/test_servertime.py
+"<path_to_python>" -m pytest tests/base/test_servertime.py -q
 ```
 
 不要直接使用 `python` 命令，因为项目有单独配好的虚拟环境，不使用全局 python 环境。
 
 在运行项目内文件的时候不要直接执行 `python module/config/gen.py` 而是使用 `python -m module.config.gen` 作为模块运行，这样运行路径会在项目根目录。
 
-### 编写计划文档
-
-如果用户要求编写计划文档，那么将计划写入到 markdown 文件 `doc/{yyyy}-{mm}-{dd}_{title}.md`，比如 `doc/2026-08-13_somethong-matters.md`
-
-### 编写 LIMITS 文档
-
-`doc/LIMITS-{DEP_NAME}.md` 回答的是**使用者**的问题：在低版本 Python 上使用这个 backport 时，哪些行为会和官方仓库（在其支持的版本上）不一样，或者哪些能力做不到。它**不是**“backport 改了哪些代码”的清单——那是 commit / git log 的职责。编写原则：
-
-- 站在使用者视角：只写用户代码在低版本 Python 上能观察到、会踩到的行为差异或局限。装上、导入、跑起来与官方一致的部分一律不写。
-- **不记录**测试内容（测试跳过、fixture、测试语法改写等）和 typehint 内容（PEP 604 union、TypeAlias、`from __future__ import annotations`、typing_extensions 等）。
-- **正确适配不记录**：为了在 3.8/3.9 上跑起来而做的等价改写不算局限。包括：upstream 源码本身就有的版本条件分支（如 `sys.version_info >= (3, 11)` gate、内嵌的 `asyncio.Runner`、`exceptiongroup` 依赖标记）、`anext` / `functools.cache` 之类的 shim、import gate 的移除、类型注解与 typing import 的改写。backport 只是把支持范围扩展到 3.8/3.9 且用户可见行为与官方一致，这类内容不要写进 LIMITS 文档。
-- **不记录打包 / 环境层面的必然改动**：放宽 `requires-python`（不改就装不上，属于正常行为）、依赖改从 py38deps index 而非 PyPI 获取、CI 如何安装依赖、tox / CI 矩阵的调整等。这些是发布方式，不是使用者会遇到的行为差异。
-- 记录前必须核实差异真实存在：用 `git show <upstream_tag>:<file>` 对比 upstream 与 backport 源码，确认改动既是 fork 特有的、又影响运行时行为。常见可记录项：
-  - 低版本 API 缺失导致参数被静默忽略（如 `subprocess.Popen` 的 user/group/umask、`Path.write_text()` 的 newline）
-  - fork 特有的行为改动（如 daemon 线程、错误容忍逻辑、为绕开低版本限制而改用的机制）
-  - 低版本上无法实现的能力（如 3.8 的取消原因无法进入任务内异常）
-- 结构建议：核心限制（为什么低版本做不到）→ 各平台/版本影响 → 其他差异 → 汇总表；用英文撰写，风格与 `doc/LIMITS-truststore.md` 一致。
-- 文档命名：`doc/LIMITS-{DEP_NAME}.md`；README 表格的 LIMITS 列用 `[LIMITS](doc/LIMITS-{DEP_NAME}.md)` 链接，没有差异就留空。
+运行测试的时候使用 `-q` 参数，避免大量输出填入上下文。
 
 ### PowerShell兼容提示
 
@@ -150,9 +352,69 @@ EOF
 
 如果需要临时执行的代码过于复杂，或者需要 stdin，那么在项目根目录编写临时文件来运行它。
 
+### 在创建和移动文件时，添加文件到git
+
+- 当创建新文件的时候，执行命令 `git add "{file}"` 来添加文件，这样就不需要开发者二次添加了。
+- 当移动文件的时候，也需要将新的路径添加到git。
+- 当编辑已有文件的时候，不需要执行 `git add` （我们假定它已经添加到了git，不然在编辑大量文件的时候需要执行许多命令）。
+- 禁止使用 `git add .` 来添加所有文件，因为项目内通常有很多仍在编写的临时文件。
+
 ### 临时文件要求
 
 如果需要下载临时文件，下载到项目根目录的 temp 文件夹，不要下载到系统临时目录
+
+## 文件结构
+
+`README.md` 表格中记录了已经移植完成的依赖
+
+`repo/{DEP_NAME}` 是各个依赖的 git 仓库。remote origin 指向我们的二次开发仓库，remote upstream 指向官方仓库
+
+`wheel/{DEP_NAME}/{DEP_VERSION}` 目录存放编译好的 wheel 文件
+
+##  测试环境
+
+本地有 cp38 ~ cp314 的测试环境，python 运行时提取自 uv 打包好的 portable python
+
+```
+envs/cp38/python.exe
+envs/cp39/python.exe
+envs/cp310/python.exe
+envs/cp311/python.exe
+envs/cp312/python.exe
+envs/cp313/python.exe
+envs/cp313t/python.exe
+envs/cp314/python.exe
+envs/cp314t/python.exe
+```
+
+### 环境复用铁律（禁止创建全新环境）
+
+`envs/cp38 ~ envs/cp314` 是项目唯一批准的 python 运行时来源，所有版本已就绪。**任何情况下都不得让工具自动下载或新建 python 环境**，违规会在用户目录累积 GB 级缓存、与 envs 重复占用磁盘（完整事故记录见 `doc/2026-09-02_uv-cache-and-environment-reuse.md`）：
+
+- **不要在 `envs/*` 里安装 uv**（`pip install uv`）：tox 4 检测到 PATH 中的 uv 会自动切换到 uv 模式（pyvenv.cfg 写 `uv = x.y.z` 标记），把下载缓存写入 `%LOCALAPPDATA%\uv\cache`（无自动清理），并在找不到指定版本 python 时自动下载完整 python 到用户目录
+- **禁止裸跑 uv 的 python 管理命令**：`uv venv` / `uv run` / `uv python install` 不带 `--python` 参数时，uv 找不到解释器会静默下载 python-build-standalone（150~250MB/个，下载缓存与安装副本双份占用）
+- **创建 venv / 安装依赖一律显式指向 envs 的 python**：`uv venv --python envs\cp38\python.exe`、`uv pip install --python envs\cp38\python.exe ...`、`python -m venv --python envs\cp38\python.exe ...`
+- 项目必须用 uv 时（如 httpx2 的 `uv sync --frozen`）：只能调用 `temp\uv\uv.exe`（不要往任何 env 里 `pip install uv`），且必须加 `--python` 指向 envs 的解释器
+- **自查信号**：`.tox/*/pyvenv.cfg` 或 venv 的 `pyvenv.cfg` 中 `home` 指向 `C:\Users\...\uv\python`（而非 `envs\cp*`）即违规；用户目录出现 `uv\cache` / `uv\python` 说明有工具自动下载过 python，应提醒用户清理
+
+### 编译工具
+
+编译工具在 `mingw64/bin` 目录下，禁止自行在系统环境中安装编译工具。
+
+### 编写 LIMITS 文档
+
+`doc/LIMITS-{DEP_NAME}.md` 回答的是**使用者**的问题：在低版本 Python 上使用这个 backport 时，哪些行为会和官方仓库（在其支持的版本上）不一样，或者哪些能力做不到。它**不是**“backport 改了哪些代码”的清单——那是 commit / git log 的职责。编写原则：
+
+- 站在使用者视角：只写用户代码在低版本 Python 上能观察到、会踩到的行为差异或局限。装上、导入、跑起来与官方一致的部分一律不写。
+- **不记录**测试内容（测试跳过、fixture、测试语法改写等）和 typehint 内容（PEP 604 union、TypeAlias、`from __future__ import annotations`、typing_extensions 等）。
+- **正确适配不记录**：为了在 3.8/3.9 上跑起来而做的等价改写不算局限。包括：upstream 源码本身就有的版本条件分支（如 `sys.version_info >= (3, 11)` gate、内嵌的 `asyncio.Runner`、`exceptiongroup` 依赖标记）、`anext` / `functools.cache` 之类的 shim、import gate 的移除、类型注解与 typing import 的改写。backport 只是把支持范围扩展到 3.8/3.9 且用户可见行为与官方一致，这类内容不要写进 LIMITS 文档。
+- **不记录打包 / 环境层面的必然改动**：放宽 `requires-python`（不改就装不上，属于正常行为）、依赖改从 py38deps index 而非 PyPI 获取、CI 如何安装依赖、tox / CI 矩阵的调整等。这些是发布方式，不是使用者会遇到的行为差异。
+- 记录前必须核实差异真实存在：用 `git show <upstream_tag>:<file>` 对比 upstream 与 backport 源码，确认改动既是 fork 特有的、又影响运行时行为。常见可记录项：
+  - 低版本 API 缺失导致参数被静默忽略（如 `subprocess.Popen` 的 user/group/umask、`Path.write_text()` 的 newline）
+  - fork 特有的行为改动（如 daemon 线程、错误容忍逻辑、为绕开低版本限制而改用的机制）
+  - 低版本上无法实现的能力（如 3.8 的取消原因无法进入任务内异常）
+- 结构建议：核心限制（为什么低版本做不到）→ 各平台/版本影响 → 其他差异 → 汇总表；用英文撰写，风格与 `doc/LIMITS-truststore.md` 一致。
+- 文档命名：`doc/LIMITS-{DEP_NAME}.md`；README 表格的 LIMITS 列用 `[LIMITS](doc/LIMITS-{DEP_NAME}.md)` 链接，没有差异就留空。
 
 ### 禁止事项
 
@@ -207,15 +469,40 @@ EOF
 
 ### 1.4 已有移植库跟随 upstream 新版本
 
-README 表格中已记录完成的库，upstream 发布新版本后按此流程跟进：
+README 表格中已记录完成的库，upstream 发布新版本后按此流程跟进。
+
+**更新固定拆成两个 commit：第一个只做合并、只解冲突，第二个才修这次合并引入的问题。** 两者混在一个 commit 里，review、CI 排错和下一次跟进都会变难。
+
+**第一步：确认 merge 基线**
 
 1. 进入子模块 `repo/{DEP_NAME}`，`git fetch upstream --tags --prune`，用 `git tag --sort=-v:refname` 确认新 release tag；`git log --oneline <旧tag>..<新tag>` 查看变更范围
 2. **merge 基线必须是 release tag，不要 merge upstream/master**：master 上总有发布后的新 commit，直接 merge 会把未发布内容混进 backport。用 `git merge <vX.Y>`；提交后核对：`git log -1 HEAD^2` 应指向 release tag，且 `git rev-list HEAD` 中不出现 tag 之后的 commit。
-3. 解决冲突前先回顾 backport 改了什么，判断哪些已不需要：
-   - 检查 upstream 是否引入了
+
+**第二步：第一个 commit —— 只解决合并冲突**
+
+这个 commit 的唯一目标是让合并在文本层面成立，不含任何「适配低版本 Python」的改动。
+
+1. 冲突处只决定取 ours / theirs / 手工融合，不顺手改写注解、不改版本号、不动 CI 配置。
+2. 解决冲突前先回顾 backport 改了什么，判断哪些已不需要：
+   - 检查 upstream 是否已经引入
    - upstream 新版本若已自带 `from __future__ import annotations`（新版常见），backport 的 Optional/Union→`|` 注解改写大多已无必要，源码冲突整体取 theirs（upstream 版）即可；README 版本声明、CI 矩阵/构建产物步骤需要手动融合
    - 发布/部署类 workflow（如 deploy.yml）在 fork 上继续删除（`git rm`），不用跟随 upstream 恢复
-4. 后续与普通流程一致
+3. 这个 commit 允许测试不通过、允许 3.8 语法不兼容——只要冲突标记清干净就提交。提交前用 `grep_files` 搜一遍 `<<<<<<<` / `>>>>>>>` 确认没有残留。
+4. 提交信息保持 git 的 merge 形态（`Merge tag 'vX.Y' into main`），不要写成 `Fix:` / `Upd:`：这个 commit 的身份就是「合并」，第二个 commit 才是「适配」。
+
+**第三步：第二个 commit —— 解决本次合并引入的问题**
+
+1. 先跑一次测试记录基线，把本次合并**新引入**的问题收集齐，典型来源：
+   - 低版本不支持的运行时求值语法（赋值右侧的 `set[str]`、`isinstance(x, int | str)`、模块级类型别名、PEP 695 等）
+   - 被上游删掉的兼容 shim、新依赖的版本约束
+   - `requires-python`、build-system、CI 矩阵 / 构建产物步骤的版本 pin
+   - 测试自身的语法降级（`async with (...)`、`exceptiongroup` 等）
+2. 逐个修复，在 cp38 ~ cp314 下验证（见「测试环境」「本地 tox 验证」「版本 Cheatsheet」）。
+3. 提交信息用约定式前缀（`Fix:` / `Upd:` / `Chore:` 等），描述「让 <vX.Y> 在 3.8-3.10 上工作」。
+
+**边界**：在第一个 commit 里顺手做一行适配，或把冲突解决混进第二个 commit，都会让「哪些是上游带来的、哪些是我们补的」重新变得不可分，拆分的收益随之消失。宁可让合并 commit 是「不能跑但干净」的状态，也不要把两类改动揉在一起。
+
+**后续**：本地测试 → CI → 主仓库，与普通流程一致，见 1.1 / 1.2 / 1.3。
 
 ## 2. 创建移植库流程
 
@@ -271,6 +558,8 @@ MCP 服务器已在 codewhale 中配置好（`codewhale mcp list` 可见：`gith
 | `get_job_logs`        | `job_id` 或 `run_id`+`failed_only`；`return_content`、`tail_lines` | **直接返回日志文本**（快速调试用）；`failed_only=true` 只看失败 job |
 | `actions_run_trigger` | `run_workflow` / `rerun_workflow_run` / `rerun_failed_jobs` / `cancel_workflow_run` / `delete_workflow_run_logs` | 触发 / 重跑 / 取消                                           |
 
+注意：禁止绕过 MCP 工具，偷取系统环境中的 access token 然后直接请求 URL，这会导致用户凭证泄露到上下文中。
+
 ## 4. 轮询 GitHub Actions 流程
 
 目标：push 触发 CI 后，以 **3 分钟**为间隔持续观察，**一旦发现错误立即停下轮询去修复**，不等待整个 run 跑完；修复后重新轮询，发现新的错误继续修复，直到整个 actions 运行完成。
@@ -298,7 +587,8 @@ mcp_github-actions_actions_list(owner, repo, method="list_workflow_jobs", resour
 判断逻辑：
 
 1. 任一 job `conclusion: failure`（run 可能还在 `in_progress`，其他 job 可能还在跑）→ **立即停止轮询，进入修复**，不等待其他 job 跑完
-2. 全部 job `conclusion: success` → 进入下载 artifact
+2. 修复完之后需要等待人工 code review，禁止直接 push 或者重新触发 CI 运行。
+3. 全部 job `conclusion: success` → 进入下载 artifact
 
 ## 5. 拉取 log 流程（下载到 temp 缓存）
 
