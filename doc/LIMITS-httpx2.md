@@ -56,7 +56,7 @@ OpenSSL 3.0+. The upstream test for it
 (`tests/httpx2/test_exceptions.py::test_anyio_write_after_ragged_tls_eof`) is
 skipped below Python 3.11 or OpenSSL 3.0 for that reason.
 
-## 4. Summary of backport-specific runtime differences vs upstream v2.16.0
+## 4. Summary of backport-specific runtime differences vs upstream v2.16.2
 
 | Area | Upstream (>= 3.11) | Backport on 3.8-3.10 |
 | --- | --- | --- |
