@@ -9,11 +9,17 @@ writes pypisite/_site/ - nothing but HTML:
     flat/index.html            one section per dependency/version, for --find-links
     .nojekyll
 
-Every anchor points at the wheel's own GitHub release download URL and carries
-the sha256 recorded in stage 2; no binary is copied or proxied. The version
-declared by the tag is checked against the wheel filenames, every released
-version is kept, and the tree is rebuilt from scratch each run so a project that
-left the index cannot leave a stale page behind.
+The pages are written by alasio.codegen.pypisite, the generator the pack server
+uses: simple_site() writes the page of one project, flat_site() the page a
+person reads, and the two pages that are not part of a pip index are written
+with the generic generator of the same package. Only the link target is local to
+this repository: a wheel lives on its GitHub release, so ReleaseLink answers the
+release asset url instead of a path inside the served folder (see the class).
+
+Every anchor carries the sha256 recorded in stage 2; no binary is copied or
+proxied. The version declared by the tag is checked against the wheel filenames,
+every released version is kept, and the tree is rebuilt from scratch each run so
+a project that left the index cannot leave a stale page behind.
 
 Also written (never published): pypisite/cache/report.json, site.digest and
 site.changed - the last one tells the workflow whether a deployment is needed.
@@ -28,7 +34,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import html
 import json
 import re
 import shutil
@@ -41,9 +46,11 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
+from alasio.codegen.html import Element, HtmlGen
+from alasio.codegen.pypisite import WheelLink, simple_site
+from alasio.codegen.pypisite.flat import flat_site
 from packaging.utils import canonicalize_name, parse_wheel_filename
 
-from build_flat import FlatPageBuilder
 from common import (
     LIVE_URL,
     REPO,
@@ -53,13 +60,98 @@ from common import (
     Fatal,
     WarningLog,
     write_summary,
-    write_text,
 )
 
 USER_AGENT = "py38deps-index-builder (+https://github.com/py38deps/py38deps)"
 NETWORK_ATTEMPTS = 3
 MAX_SKIP_RATIO = 0.5
 WORKERS = 8
+
+# Titles of the three pages of the site; the pages pip reads take their own
+# heading from the generator ('Links for <name>')
+SITE_TITLE = "py38deps wheel mirror"
+ROOT_TITLE = "py38deps simple index"
+FLAT_TITLE = "py38deps wheels"
+
+# The version of the simple api a page speaks, PEP 629; the pages pip reads get
+# it from the generator, the root index is the one written here
+REPOSITORY_VERSION = "1.0"
+
+
+class ReleaseLink(WheelLink):
+    """One wheel of the index, linked at the release asset that holds it.
+
+    WheelLink builds its link from the path of a file inside the folder the page
+    is served from, because the pack server publishes the pages and the wheels
+    together. This index publishes the pages alone: the pages are served by
+    GitHub Pages and the wheels stay on the GitHub Releases of their tag, so the
+    link of a page is an absolute url and the folder layout does not apply.
+
+    Everything else is the check WheelLink makes: the name is a distribution
+    name, the version and the file name are single url path segments, and the
+    digest is a lowercase sha256 the link carries for pip to verify.
+
+    Attributes:
+        url (str): Absolute url of the file; href() appends the '#sha256=' pip
+            reads, so the link and its digest stay one fact
+
+    Raises:
+        ValueError: If the url is not an absolute https url, or on every rule of
+            WheelLink
+    """
+
+    url: str = ''
+
+    def __post_init__(self):
+        super().__post_init__()
+        if not self.url.startswith('https://'):
+            raise ValueError(f'The url of the wheel "{self.filename}" is not an absolute https url: {self.url!r}')
+
+    def href(self, with_name=False):
+        """
+        The link of the wheel on a page.
+
+        Args:
+            with_name (bool): Unused, the url of the release asset is the same on
+                every page. Kept for the signature of WheelLink.href()
+
+        Returns:
+            str: The absolute url, with '#sha256=' appended when the link has one
+        """
+        if self.sha256:
+            return f'{self.url}#sha256={self.sha256}'
+        return self.url
+
+
+def release_url(repo, tag, filename):
+    """
+    The download url of one asset of a release.
+
+    Args:
+        repo (str): owner/name of the repository
+        tag (str): Release tag, quoted as a single path segment
+        filename (str): File name of the asset
+
+    Returns:
+        str: Absolute url pip downloads the wheel from
+    """
+    return "https://github.com/{}/releases/download/{}/{}".format(
+        repo, urllib.parse.quote(tag, safe=""), urllib.parse.quote(filename)
+    )
+
+
+def release_page_url(repo, tag):
+    """
+    The page of one release, the source the flat page names under a version.
+
+    Args:
+        repo (str): owner/name of the repository
+        tag (str): Release tag, quoted as a single path segment
+
+    Returns:
+        str: Absolute url of the release page
+    """
+    return f"https://github.com/{repo}/releases/tag/{urllib.parse.quote(tag, safe='')}"
 
 
 class SiteBuilder:
@@ -76,7 +168,7 @@ class SiteBuilder:
     # ------------------------------------------------------------ interpretation
 
     def entries_for_tag(self, tag_record, record):
-        """Interpret one cache record; returns (records, skip_reason)."""
+        """Interpret one cache record; returns (links, skip_reason)."""
         tag = tag_record["tag"]
         declared = tag_record.get("version")
 
@@ -88,7 +180,7 @@ class SiteBuilder:
         if without_digest:
             self.warn(f"[{tag}] {len(without_digest)} wheel(s) without sha256 - served unhashed")
 
-        entries = []
+        links = []
         versions = set()
         for name, digest in wheels:
             try:
@@ -97,23 +189,20 @@ class SiteBuilder:
                 self.warn(f"[{tag}] unparsable wheel filename {name!r} ({exc}) - ignored")
                 continue
             versions.add(str(version))
-            entries.append(
-                {
-                    "tag": tag,
-                    "project": str(canonicalize_name(project)),
-                    "version": str(version),
-                    "filename": name,
-                    "sha256": digest,
-                    "url": "https://github.com/{}/releases/download/{}/{}".format(
-                        self.repo, urllib.parse.quote(tag, safe=""), urllib.parse.quote(name)
-                    ),
-                }
+            links.append(
+                ReleaseLink(
+                    str(canonicalize_name(project)),
+                    str(version),
+                    name,
+                    digest or "",
+                    url=release_url(self.repo, tag, name),
+                )
             )
-        if not entries:
+        if not links:
             return [], "no parsable wheel assets"
         if declared is not None and versions != {declared}:
             return [], f"wheel version {','.join(sorted(versions))} != tag version {declared}"
-        return entries, None
+        return links, None
 
     def assemble(self, payload):
         """Walk the effective tags newest-first and collect the index entries."""
@@ -125,20 +214,20 @@ class SiteBuilder:
             if record is None:
                 raise Fatal(f"no cache record for tag {tag} - run pypisite/fetch.py first")
 
-            entries, reason = self.entries_for_tag(tag_record, record)
+            links, reason = self.entries_for_tag(tag_record, record)
             if reason is not None:
                 skipped.append((tag, reason))
                 if reason != "no uploaded assets":  # stage 2 already reported those
                     self.warn(f"[{tag}] skipped: {reason}")
                 continue
 
-            for entry in entries:
-                key = (entry["project"], entry["version"])
+            for link in links:
+                key = (link.key, link.version)
                 current = accepted.get(key)
                 if current is None:
-                    accepted[key] = {"tag": tag, "records": [entry]}
+                    accepted[key] = {"tag": tag, "links": [link]}
                 elif current["tag"] == tag:
-                    current["records"].append(entry)
+                    current["links"].append(link)
 
         # Stage 1 dropped the older tag of a re-released version; if the newer
         # tag has no assets yet, that version is missing from the index. One
@@ -160,35 +249,51 @@ class SiteBuilder:
 
     # ------------------------------------------------------------------- the site
 
+    def _root_page(self, names):
+        """Build the PEP 503 root index: one link per project, in name order."""
+        gen = HtmlGen()
+        head = [Element(gen, "meta", name="pypi:repository-version", content=REPOSITORY_VERSION)]
+        with gen.Doc(ROOT_TITLE, head=head) as page, page.body():
+            gen.H1(ROOT_TITLE)
+            for name in names:
+                with gen.Line():
+                    gen.A(name, href=f"{name}/")
+                    gen.Br()
+        return gen
+
     def _landing_page(self, names, wheels, digest):
-        return "\n".join(
-            [
-                "<!DOCTYPE html>",
-                "<html>",
-                "  <head>",
-                "    <title>py38deps wheel mirror</title>",
-                f'    <meta name="py38deps:index-digest" content="{digest}">' if digest else "    <!-- index digest -->",
-                "  </head>",
-                "  <body>",
-                "    <h1>py38deps wheel mirror</h1>",
-                f"    <p>{len(names)} projects, {wheels} wheels. "
-                f'Binaries live on <a href="https://github.com/{self.repo}/releases">GitHub Releases</a>.</p>',
-                f'    <pre>pip install --extra-index-url {html.escape(self.usage_index_url)} &lt;package&gt;</pre>',
-                '    <p>Simple index: <a href="simple/">simple/</a> &middot; '
-                'find-links page: <a href="flat/">flat/</a></p>',
-                "  </body>",
-                "</html>",
-                "",
-            ]
-        )
+        """Build the landing page; the digest is a head meta so a run spots a live copy."""
+        gen = HtmlGen()
+        head = []
+        if digest:
+            head.append(Element(gen, "meta", name="py38deps:index-digest", content=digest))
+        with gen.Doc(SITE_TITLE, head=head) as page, page.body():
+            gen.H1(SITE_TITLE)
+            gen.P(
+                f"{len(names)} projects, {wheels} wheels. Binaries live on ",
+                Element(gen, "a", "GitHub Releases", href=f"https://github.com/{self.repo}/releases"),
+                ".",
+            ).wrap("inline")
+            gen.Pre(
+                Element(gen, "code", f"pip install --extra-index-url {self.usage_index_url} <package>")
+            ).wrap("inline")
+            gen.P(
+                "Simple index: ",
+                Element(gen, "a", "simple/", href="simple/"),
+                " · find-links page: ",
+                Element(gen, "a", "flat/", href="flat/"),
+            ).wrap("inline")
+        return gen
 
     def write_site(self, accepted):
         """Write the index pages; returns (project names, wheel count, tree digest)."""
-        per_project = defaultdict(list)
-        project_versions = defaultdict(list)
+        projects = defaultdict(list)
+        origins = defaultdict(dict)
         for (project, version), data in accepted.items():
-            per_project[project].extend(data["records"])
-            project_versions[project].append((version, data["tag"], data["records"]))
+            projects[project].extend(data["links"])
+            # the flat page names where the wheels of a version come from; the
+            # tag is the release the assets are attached to
+            origins[project][version] = (data["tag"], release_page_url(self.repo, data["tag"]))
 
         # Rebuild from scratch: a project that is no longer indexed must not keep
         # a stale page around (pip would happily install from it).
@@ -200,36 +305,22 @@ class SiteBuilder:
         simple.mkdir(parents=True, exist_ok=True)
         (self.out_dir / "flat").mkdir(parents=True, exist_ok=True)
 
-        names = sorted(per_project)
-        write_text(
-            simple / "index.html",
-            render_page(
-                "py38deps simple index", [f'<a href="{html.escape(name)}/">{html.escape(name)}</a><br>' for name in names]
-            ),
-        )
-
+        names = sorted(projects)
+        self._root_page(names).write(simple / "index.html")
         for name in names:
-            records = sorted(per_project[name], key=lambda record: record["filename"])
-            (simple / name).mkdir(parents=True, exist_ok=True)
-            anchors = [
-                '<a href="{}{}">{}</a><br>'.format(
-                    html.escape(record["url"], quote=True),
-                    f'#sha256={record["sha256"]}' if record["sha256"] else "",
-                    html.escape(record["filename"]),
-                )
-                for record in records
-            ]
-            write_text(simple / name / "index.html", render_page(f"Links for {name}", anchors))
-        write_text(
-            self.out_dir / "flat" / "index.html",
-            FlatPageBuilder(project_versions, self.repo, LIVE_URL + "flat/").build(),
-        )
+            simple_site(name, projects[name]).write(simple / name / "index.html")
+        flat_site(
+            {name: projects[name] for name in names},
+            FLAT_TITLE,
+            command=f"pip install --no-index --find-links {self.live_url}flat/ <package>",
+            origins={name: origins[name] for name in names},
+        ).write(self.out_dir / "flat" / "index.html")
 
-        wheels = sum(len(v) for v in per_project.values())
+        wheels = sum(len(links) for links in projects.values())
         # The digest covers every file plus the landing page with an empty digest,
         # so it does not depend on itself and still changes when the page does.
-        digest = tree_digest(self.out_dir, self._landing_page(names, wheels, ""))
-        write_text(self.out_dir / "index.html", self._landing_page(names, wheels, digest))
+        digest = tree_digest(self.out_dir, self._landing_page(names, wheels, "").generate_str())
+        self._landing_page(names, wheels, digest).write(self.out_dir / "index.html")
         return names, wheels, digest
 
     # ------------------------------------------------------------------ deploy
@@ -292,24 +383,6 @@ class SiteBuilder:
 # ------------------------------------------------------------------------- output
 
 
-def render_page(title, anchors):
-    lines = [
-        "<!DOCTYPE html>",
-        "<html>",
-        "  <head>",
-        '    <meta name="pypi:repository-version" content="1.0">',
-        f"    <title>{html.escape(title)}</title>",
-        "  </head>",
-        "  <body>",
-        f"    <h1>{html.escape(title)}</h1>",
-        *[f"    {line}" for line in anchors],
-        "  </body>",
-        "</html>",
-        "",
-    ]
-    return "\n".join(lines)
-
-
 def tree_digest(out_dir, landing):
     """Deterministic digest of the site contents (used to skip needless deployments)."""
     digest = hashlib.sha256()
@@ -335,10 +408,10 @@ def inspect_cache(store, payload, wanted):
             return 0
         print(json.dumps(record, ensure_ascii=False, indent=1))
         declared = wanted.split("==", 1)[-1]
-        entries, reason = builder.entries_for_tag({"tag": wanted, "version": declared}, record)
-        print(f"verdict: skipped ({reason})" if reason else f"verdict: contributes {len(entries)} wheel(s)")
-        for entry in entries:
-            print(f"  {entry['filename']}\n    {entry['url']}")
+        links, reason = builder.entries_for_tag({"tag": wanted, "version": declared}, record)
+        print(f"verdict: skipped ({reason})" if reason else f"verdict: contributes {len(links)} wheel(s)")
+        for link in links:
+            print(f"  {link.filename}\n    {link.url}")
         return 0
 
     print(f"{len(payload['tags'])} effective tag(s), records in {store.directory}")
@@ -348,8 +421,8 @@ def inspect_cache(store, payload, wanted):
         if record is None:
             print(f"  {tag:36s} no record yet - run pypisite/fetch.py")
             continue
-        entries, reason = builder.entries_for_tag(tag_record, record)
-        verdict = f"skipped: {reason}" if reason else f"ok ({len(entries)} wheels)"
+        links, reason = builder.entries_for_tag(tag_record, record)
+        verdict = f"skipped: {reason}" if reason else f"ok ({len(links)} wheels)"
         print(f"  {tag:36s} found={str(record['found']):5s} assets={len(record['assets']):4d}  {verdict}")
     return 0
 
@@ -373,7 +446,7 @@ def url_state(url, attempts=NETWORK_ATTEMPTS):
 
 def verify_urls(accepted):
     """HEAD-check every wheel URL of the assembled index."""
-    urls = sorted({entry["url"] for data in accepted.values() for entry in data["records"]})
+    urls = sorted({link.url for data in accepted.values() for link in data["links"]})
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
         states = list(pool.map(url_state, urls))
     dead = [url for url, state in zip(urls, states) if state is False]
